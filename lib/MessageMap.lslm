@@ -1,0 +1,48 @@
+/*--------------------------------------------------------------------------------**
+**  File: MessageMap                                                              **
+** ------------------------------------------------------------------------------ **
+**  Version: 6.00.001                                                             **
+** ------------------------------------------------------------------------------ **
+** Licensed under the GPLv2, with the additional requirement that these scripts   **
+** remain "full perms" in Second Life®.  See "CollarDB License" for details.      **
+** ------------------------------------------------------------------------------ **
+** ©2014 CollarDB and Individual Contributors                                     **
+**--------------------------------------------------------------------------------*/
+$module ()
+
+/*--------------------**
+** Master Message Map **
+**--------------------*/
+integer COMMAND_NOAUTH          = 0xCDB900;  // Message Map range from 900-999 reserved for Command AUTH 
+integer COMMAND_BLACKLIST       = 0xCDB917;  // Order of permission is lowest to highest.
+integer COMMAND_WEARERLOCKEDOUT = 0xCDB918;
+integer COMMAND_SAFEWORD        = 0xCDB919;  
+integer COMMAND_COLLAR          = 0xCDB929;     
+integer COMMAND_RLV_RELAY       = 0xCDB939;
+integer COMMAND_OBJECT          = 0xCDB949;
+integer COMMAND_EVERYONE        = 0xCDB959;
+integer COMMAND_WEARER          = 0xCDB969;
+integer COMMAND_GROUP           = 0xCDB979;
+integer COMMAND_SECOWNER        = 0xCDB989;
+integer COMMAND_OWNER           = 0xCDB999;
+
+integer SETTING_SAVE       = 0xCDB100;
+integer SETTING_REQUEST    = 0xCDB110;
+integer SETTING_REQUEST_NOCACHE = 0xCDB115;
+integer SETTING_DELETE     = 0xCDB120;
+integer SETTING_RESPONSE   = 0xCDB130;
+integer SETTING_EMPTY      = 0xCDB131;
+
+integer MENU_REQUEST        = 0xCDB300;
+integer MENU_RESPONSE       = 0xCDB310;
+integer MENU_SUBMENU        = 0xCDB320;
+integer MENU_REMOVE         = 0xCDB330;
+
+integer DIALOG_REQUEST          = 0xCDB340;
+integer DIALOG_RESPONSE         = 0xCDB350;
+integer DIALOG_TIMEOUT          = 0xCDB360;
+
+
+integer ATTACHMENT_REQUEST      = 0xCDB370;
+integer ATTACHMENT_RESPONSE     = 0xCDB380;
+integer ATTACHMENT_FORWARD      = 0xCDB390;

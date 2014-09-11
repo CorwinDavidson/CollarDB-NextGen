@@ -1,0 +1,8 @@
+$module ()
+$import lib.MessageMap.lslm ();
+
+key g_kWearer = NULL_KEY;
+
+list g_lCacheTemplate = [];
+
+string UPMENU = "^";

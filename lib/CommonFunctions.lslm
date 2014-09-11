@@ -1,0 +1,105 @@
+$module ()
+
+$import lib.CommonVariables.lslm ();
+$import lib.stringFunctions.lslm ();
+
+//#mdebug info
+//@Debug (string sStr)
+//@{
+//@		llOwnerSay(llGetScriptName() + ": " + sStr);
+//@}
+//@}
+//#enddebug
+
+string String2Json(string s)
+{
+    return llGetSubString(llList2Json(JSON_OBJECT, [s,""]), 1, -5);
+}
+
+key Dialog(key kRCPT, string sPrompt, list lChoices, list lUtilityButtons, integer iPage)
+{
+    key kID = llGenerateKey();
+    llMessageLinked(LINK_SET, DIALOG_REQUEST,"{\"DIALOG\":" + String2Json(kRCPT) + "," + String2Json(sPrompt) + "," + (string)iPage + "," +  String2Json( llDumpList2String(lChoices, "`")) + "," + String2Json(llDumpList2String(lUtilityButtons, "`")) + "}",kID);
+    return kID;
+}
+
+integer KeyIsAv(key kID)
+{
+    return llGetAgentSize(kID) != ZERO_VECTOR;
+}
+
+Notify(key kID, string sMsg, integer iAlsoNotifyWearer) 
+{
+    if (kID == g_kWearer) 
+    {
+        llOwnerSay(sMsg);
+    } 
+    else 
+    {
+    	if (KeyIsAv(kID))
+    	{
+    		llRegionSayTo(kID,0,sMsg);
+    	}
+    	else
+    	{
+        	llInstantMessage(kID,sMsg);
+    	}
+        
+        if (iAlsoNotifyWearer) 
+        {
+            llOwnerSay(sMsg);
+        }
+    }
+}
+
+
+integer GetOwnerChannel(key kID, integer iAppID)
+{
+    return 0x80000000 | ((integer)("0x"+(string)kID) ^ iAppID);
+}
+
+/*-------------------**
+** Cache Functions   **
+**-------------------*/
+
+integer CacheValExists(list cache, string sToken)
+{
+    return ~llListFindList(cache, [sToken]);
+}
+
+list SetCacheVal(list cache, string sToken, string sValue, integer iOffset)
+{
+    integer iIndex = llListFindList(cache, [sToken]);
+    if (iIndex == -1)
+    {
+        cache += [sToken] + llListReplaceList(g_lCacheTemplate, [sValue], iOffset, iOffset);
+    }
+    else
+    {
+        cache = llListReplaceList(cache, [sValue], iIndex + iOffset, iIndex + iOffset);
+    }
+    return cache;
+}
+
+string GetCacheVal(list cache, string sToken, integer iOffset)
+{
+    integer iIndex = llListFindList(cache, [sToken]);
+    if (iIndex != -1)
+    {
+    	return llList2String(cache, iIndex + iOffset);
+    }
+    else
+    { 
+    	return "";
+    }
+}
+
+list DelCacheVal(list cache, string sToken, integer iValCnt)
+{
+    integer iIndex = llListFindList(cache, [sToken]);
+    if (iIndex != -1)
+    {
+        cache = llDeleteSubList(cache, iIndex, iIndex + iValCnt);
+    }
+    return cache;
+}
