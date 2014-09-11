@@ -640,7 +640,7 @@ string GetDBPrefix()
 /*---------------//
 //  HANDLERS     //
 //---------------*/
-
+// pragma inline
 HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
 {
     list lParams = llParseString2List(sStr, ["="], []);
@@ -682,7 +682,7 @@ HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
     }
         
 }
-
+// pragma inline
 HandleLOCALSETTING(integer iSender, integer iNum, string sStr, key kID)
 {
    list lParams = llParseString2List(sStr, ["="], []);
@@ -710,7 +710,7 @@ HandleLOCALSETTING(integer iSender, integer iNum, string sStr, key kID)
         }            
     }
 }
-
+// pragma inline
 HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
 {
     list lMenuParams = llParseString2List(sStr, ["|"], []);
@@ -785,7 +785,7 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
             g_keyConfigMenuID = NULL_KEY;
     }
 }
-
+// pragma inline
 HandleMENU(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum == SUBMENU)
@@ -867,7 +867,7 @@ HandleMENU(integer iSender, integer iNum, string sStr, key kID)
         }
     }    
 }
-
+// pragma inline
 HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
 {
     if(iNum == COMMAND_WEARERLOCKEDOUT)

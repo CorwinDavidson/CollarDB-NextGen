@@ -125,7 +125,7 @@ SendCommand(string sCmd)
     }
 
 }
-
+// pragma inline
 HandleRLVCommand(key kID, string sCommand)
 {
     string sStr=llToLower(sCommand);
@@ -357,7 +357,7 @@ ready()
 /*---------------//
 //  HANDLERS     //
 //---------------*/
-
+// pragma inline
 HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
 {
     list lParams = llParseString2List(sStr, ["="], []);
@@ -406,7 +406,7 @@ HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
         CheckVersion(FALSE);
     }
 }
-
+// pragma inline
 HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum == DIALOG_RESPONSE)
@@ -453,7 +453,7 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
         }
     }
 }
-
+// pragma inline
 HandleMENU(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum ==MENU_SUBMENU)
@@ -504,7 +504,7 @@ HandleMENU(integer iSender, integer iNum, string sStr, key kID)
         } 
     }
 }
-
+// pragma inline
 HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum >= COMMAND_OWNER && iNum <= COMMAND_WEARER) { 
@@ -604,7 +604,7 @@ HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
         }
     }
 }
-
+// pragma inline
 HandleRLV(integer iSender, integer iNum, string sStr, key kID)
 {
     if (g_iRLVOn && g_iViewerCheck)

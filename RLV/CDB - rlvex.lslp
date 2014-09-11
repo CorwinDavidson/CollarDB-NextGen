@@ -492,7 +492,7 @@ ClearEx()
 /*---------------//
 //  HANDLERS     //
 //---------------*/
-
+// pragma inline
 HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
 {
     list lParams = llParseString2List(sStr, ["="], []);
@@ -554,7 +554,7 @@ HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
         }
     }
 }
-
+// pragma inline
 HandleLOCALSETTING(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum == SETTING_RESPONSE)
@@ -573,7 +573,7 @@ HandleLOCALSETTING(integer iSender, integer iNum, string sStr, key kID)
         }
     }
 }
-
+// pragma inline
 HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
 {
 if (iNum == DIALOG_RESPONSE)
@@ -801,7 +801,7 @@ if (iNum == DIALOG_RESPONSE)
             }
         }
 }
-
+// pragma inline
 HandleMENU(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum == MENU_SUBMENU)
@@ -844,7 +844,7 @@ HandleMENU(integer iSender, integer iNum, string sStr, key kID)
     }    
     */
 }
-
+// pragma inline
 HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
 {
     if ((sStr == "reset" || sStr == "runaway") && (iNum == COMMAND_OWNER || iNum == COMMAND_WEARER))
@@ -1050,7 +1050,7 @@ HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
         }
     }
 }
-
+// pragma inline
 HandleRLV(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum == RLV_REFRESH)

@@ -200,6 +200,7 @@ ChatCamParams(integer chan)
 //  HANDLERS     //
 //---------------*/
 
+// pragma inline
 HandleLOCALSETTING(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum == SETTING_RESPONSE)
@@ -226,6 +227,7 @@ HandleLOCALSETTING(integer iSender, integer iNum, string sStr, key kID)
     }
 }
 
+// pragma inline
 HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum == DIALOG_RESPONSE)
@@ -249,6 +251,7 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
     }
 }
 
+// pragma inline
 HandleMENU(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum == MENU_SUBMENU)
@@ -278,6 +281,7 @@ HandleMENU(integer iSender, integer iNum, string sStr, key kID)
 */    
 }
 
+// pragma inline
 HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum >= COMMAND_OWNER && iNum <= COMMAND_WEARER)

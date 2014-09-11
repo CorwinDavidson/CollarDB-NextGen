@@ -376,7 +376,7 @@ handleMultiSearch()
 /*---------------//
 //  HANDLERS     //
 //---------------*/
-
+// pragma inline
 HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum == SETTING_RESPONSE || iNum == SETTING_RESPONSE)
@@ -398,12 +398,12 @@ HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
         }
     }
 }
-
+// pragma inline
 HandleLOCALSETTING(integer iSender, integer iNum, string sStr, key kID)
 {
 
 }
-
+// pragma inline
 HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum == DIALOG_RESPONSE)
@@ -594,7 +594,7 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
         }
     }
 }
-
+// pragma inline
 HandleMENU(integer iSender, integer iNum, string sStr, key kID)
 {
         if (iNum == MENU_REQUEST && sStr == g_sParentMenu)
@@ -676,7 +676,7 @@ HandleMENU(integer iSender, integer iNum, string sStr, key kID)
     } 
     */   
 }
-
+// pragma inline
 HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum >= COMMAND_OWNER && iNum <= COMMAND_WEARER)

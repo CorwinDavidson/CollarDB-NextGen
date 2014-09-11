@@ -552,7 +552,7 @@ CleanQueue()
 /*---------------//
 //  HANDLERS     //
 //---------------*/
-
+// pragma inline
 HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
 {
 if (iNum == SETTING_RESPONSE)
@@ -619,7 +619,7 @@ if (iNum == SETTING_RESPONSE)
 }
 
 
-
+// pragma inline
 HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum == DIALOG_RESPONSE)
@@ -760,7 +760,7 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
         }
     }
 }
-
+// pragma inline
 HandleMENU(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum == MENU_SUBMENU)
@@ -803,7 +803,7 @@ HandleMENU(integer iSender, integer iNum, string sStr, key kID)
     } 
     */   
 }
-
+// pragma inline
 HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum>=COMMAND_OWNER&&iNum<=COMMAND_WEARER)

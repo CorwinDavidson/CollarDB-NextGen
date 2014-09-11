@@ -252,6 +252,7 @@ SaveBellSettings()
 //  HANDLERS     //
 //---------------*/
 
+// pragma inline
 HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum == SETTING_RESPONSE)
@@ -272,6 +273,7 @@ HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
     }
 }
 
+// pragma inline
 HandleMENU(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum == MENU_SUBMENU)
@@ -299,6 +301,7 @@ HandleMENU(integer iSender, integer iNum, string sStr, key kID)
     }
 }
 
+// pragma inline
 HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
 {
 if (iNum>=COMMAND_OWNER && iNum<=COMMAND_WEARER)
@@ -433,6 +436,7 @@ if (iNum>=COMMAND_OWNER && iNum<=COMMAND_WEARER)
         }
 }
 
+// pragma inline
 HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum==DIALOG_RESPONSE)
