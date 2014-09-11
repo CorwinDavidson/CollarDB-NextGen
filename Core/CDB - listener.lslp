@@ -4,9 +4,9 @@
 **  Version: 6.00.001                                                             **
 ** ------------------------------------------------------------------------------ **
 ** Licensed under the GPLv2, with the additional requirement that these scripts   **
-** remain "full perms" in Second Life�.  See "CollarDB License" for details.      **
+** remain "full perms" in Second Life®.  See "CollarDB License" for details.      **
 ** ------------------------------------------------------------------------------ **
-** �2014 CollarDB and Individual Contributors                                     **
+** ©2014 CollarDB and Individual Contributors                                     **
 **--------------------------------------------------------------------------------*/
 
 
@@ -58,12 +58,6 @@ SetListeners()
     g_iHUDListener = llListen(g_iHUDChan, "", NULL_KEY ,"");
     g_iLockMesiterListener = llListen(g_iLockMeisterChan, "", NULL_KEY, (string)g_kWearer + "collar");
 
-}
-
-string AutoPrefix()
-{
-    list sName = llParseString2List(llKey2Name(g_kWearer), [" "], []);
-    return llToLower(llGetSubString(llList2String(sName, 0), 0, 0)) + llToLower(llGetSubString(llList2String(sName, 1), 0, 0));
 }
 
 string CollarVersion()

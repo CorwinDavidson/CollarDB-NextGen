@@ -16,7 +16,8 @@ $module ()
 integer COMMAND_NOAUTH          = 0xCDB900;  // Message Map range from 900-999 reserved for Command AUTH 
 integer COMMAND_BLACKLIST       = 0xCDB917;  // Order of permission is lowest to highest.
 integer COMMAND_WEARERLOCKEDOUT = 0xCDB918;
-integer COMMAND_SAFEWORD        = 0xCDB919;  
+integer COMMAND_SAFEWORD        = 0xCDB919;
+integer COMMAND_RELAY_SAFEWORD  = 0xCDB920;  
 integer COMMAND_COLLAR          = 0xCDB929;     
 integer COMMAND_RLV_RELAY       = 0xCDB939;
 integer COMMAND_OBJECT          = 0xCDB949;
@@ -42,7 +43,45 @@ integer DIALOG_REQUEST          = 0xCDB340;
 integer DIALOG_RESPONSE         = 0xCDB350;
 integer DIALOG_TIMEOUT          = 0xCDB360;
 
+integer ATTACHMENT_REQUEST      = 0xCDB410;
+integer ATTACHMENT_RESPONSE     = 0xCDB420;
+integer ATTACHMENT_FORWARD      = 0xCDB430;
+integer ATTACHMENT_PASSTHROUGH  = 0xCDB440;
+integer COLLAR_PASSTHROUGH      = 0xCDB450;
+integer ATTACHMENT_CHANRESET    = 0xCDB460;
+integer ATTACHMENT_PING         = 0xCDB470;
 
-integer ATTACHMENT_REQUEST      = 0xCDB370;
-integer ATTACHMENT_RESPONSE     = 0xCDB380;
-integer ATTACHMENT_FORWARD      = 0xCDB390;
+integer RLV_CMD                 = 0xCDB600;
+integer RLV_REFRESH             = 0xCDB601;     // RLV plugins should reinstate their restrictions upon receiving this message.
+integer RLV_CLEAR               = 0xCDB602;     // RLV plugins should clear their restriction lists upon receiving this message.
+integer RLV_VERSION             = 0xCDB603;     // RLV Plugins can recieve the used rl viewer version upon receiving this message.
+integer RLV_OFF                 = 0xCDB610;     // send to inform plugins that RLV is disabled now, no message or key needed
+integer RLV_ON                  = 0xCDB611;     // send to inform plugins that RLV is enabled now, no message or key needed
+integer RLVR_CMD                = 0xCDB612;
+
+integer ANIM_START              = 0xCDB700;     // send this with the name of an anim in the string part of the message to play the anim
+integer ANIM_STOP               = 0xCDB701;     // send this with the name of an anim in the string part of the message to stop the anim
+integer CPLANIM_PERMREQUEST     = 0xCDB702;     // id should be av's key, str should be cmd name "hug", "kiss", etc
+integer CPLANIM_PERMRESPONSE    = 0xCDB703;     // str should be "1" for got perms or "0" for not.  id should be av's key
+integer CPLANIM_START           = 0xCDB704;     // str should be valid anim name.  id should be av
+integer CPLANIM_STOP            = 0xCDB705;     // str should be valid anim name.  id should be av
+
+integer APPEARANCE_ALPHA        = -0xCDB800;
+integer APPEARANCE_COLOR        = -0xCDB801;
+integer APPEARANCE_TEXTURE      = -0xCDB802;
+integer APPEARANCE_POSITION     = -0xCDB803;
+integer APPEARANCE_ROTATION     = -0xCDB804;
+integer APPEARANCE_SIZE         = -0xCDB805;
+integer APPEARANCE_SIZE_FACTOR  = -0xCDB815;
+
+integer TIMER_EVENT             = -0xCDB100;    // str = "start" or "end". For start, either "online" or "realtime".
+
+integer KEY_VISIBLE             = -0xCDB151;    // For other things that want to manage showing/hiding keys.
+integer KEY_INVISIBLE           = -0xCDB152;    // For other things that want to manage showing/hiding keys.
+
+integer WEARERLOCKOUT           = -0xCDB199;
+
+integer POPUP_HELP              = -0xCDB001;
+
+integer TIMER_TOMESSAGE         = -0xCDB109;      
+integer TIMER_FROMMESSAGE       = -0xCDB110; 

@@ -2,7 +2,9 @@ $module ()
 $import lib.MessageMap.lslm ();
 
 key g_kWearer = NULL_KEY;
+key g_kDialogID;
 
 list g_lCacheTemplate = [];
+list g_lButtons = [];
 
 string UPMENU = "^";

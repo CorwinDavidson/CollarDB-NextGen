@@ -4,9 +4,9 @@
 **  Version: 6.00.001                                                             **
 ** ------------------------------------------------------------------------------ **
 ** Licensed under the GPLv2, with the additional requirement that these scripts   **
-** remain "full perms" in Second Life�.  See "CollarDB License" for details.      **
+** remain "full perms" in Second Life®.  See "CollarDB License" for details.      **
 ** ------------------------------------------------------------------------------ **
-** �2014 CollarDB and Individual Contributors                                     **
+** ©2014 CollarDB and Individual Contributors                                     **
 **--------------------------------------------------------------------------------*/
 
 // -- MENU GLOBALS --

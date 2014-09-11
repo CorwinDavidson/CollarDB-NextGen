@@ -77,21 +77,6 @@ $import lib.MessageMap.lslm ();
 $import lib.CommonVariables.lslm ();
 $import lib.CommonFunctions.lslm ();
 
-
-integer POPUP_HELP              = -0xCDB001;      
-
-
-integer RLV_CMD                 = 0xCDB600;
-integer RLV_REFRESH             = 0xCDB601;     // RLV plugins should reinstate their restrictions upon receiving this message.
-integer RLV_CLEAR               = 0xCDB602;     // RLV plugins should clear their restriction lists upon receiving this message.
-
-integer ANIM_START              = 0xCDB700;     // send this with the name of an anim in the string part of the message to play the anim
-integer ANIM_STOP               = 0xCDB701;     // send this with the name of an anim in the string part of the message to stop the anim
-
-//this can change
-integer WEARERLOCKOUT           = -0xCDB199;
-
-
 NewPerson(key kID, string sName, string sType)
 {//adds new owner, secowner, or blacklisted, as determined by type.
     if (sType == "owner")
