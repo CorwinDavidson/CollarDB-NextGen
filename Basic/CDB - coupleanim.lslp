@@ -14,8 +14,6 @@
 //  VARIABLES  //
 //-------------*/
 
-integer g_iDebug = FALSE;
-
 integer g_iReady = FALSE;
 
 string g_sStopString = "stop";
@@ -28,13 +26,9 @@ list g_lTimeouts = [];  // Strided list of timeouts in the form of "unixtime","T
 
 list g_lPartners;
 
-key g_kWearer;
-
-
 string g_sParentMenu = "Animations";
 string g_sSubMenu = "Couples";
 
-string UPMENU = "^";
 //string MORE = ">";
 key g_kAnimmenu;
 key g_kPart;
@@ -76,82 +70,14 @@ string g_sDBToken = "coupletime";
 string g_sSubAnim;
 string g_sDomAnim;
 
-
-/*---------------//
-//  MESSAGE MAP  //
-//---------------*/
-integer COMMAND_NOAUTH          = 0xCDB000;
-integer COMMAND_OWNER           = 0xCDB500;
-integer COMMAND_SECOWNER        = 0xCDB501;
-integer COMMAND_GROUP           = 0xCDB502;
-integer COMMAND_WEARER          = 0xCDB503;
-integer COMMAND_EVERYONE        = 0xCDB504;
-integer COMMAND_OBJECT          = 0xCDB506;
-integer COMMAND_RLV_RELAY       = 0xCDB507;
-
-integer POPUP_HELP              = -0xCDB001;      
-
-integer HTTPDB_SAVE             = 0xCDB200;     // scripts send messages on this channel to have settings saved to httpdb
-                                                // str must be in form of "token=value"
-integer HTTPDB_REQUEST          = 0xCDB201;     // when startup, scripts send requests for settings on this channel
-integer HTTPDB_RESPONSE         = 0xCDB202;     // the httpdb script will send responses on this channel
-integer HTTPDB_DELETE           = 0xCDB203;     // delete token from DB
-integer HTTPDB_EMPTY            = 0xCDB204;     // sent by httpdb script when a token has no value in the db
-
-integer MENUNAME_REQUEST        = 0xCDB300;
-integer MENUNAME_RESPONSE       = 0xCDB301;
-integer SUBMENU                 = 0xCDB302;
-integer MENUNAME_REMOVE         = 0xCDB303;
-
-integer RLV_CMD                 = 0xCDB600;
-integer RLV_REFRESH             = 0xCDB601;     // RLV plugins should reinstate their restrictions upon receiving this message.
-integer RLV_CLEAR               = 0xCDB602;     // RLV plugins should clear their restriction lists upon receiving this message.
-
-integer ANIM_START              = 0xCDB700;     // send this with the name of an anim in the string part of the message to play the anim
-integer ANIM_STOP               = 0xCDB701;     // send this with the name of an anim in the string part of the message to stop the anim
-integer CPLANIM_PERMREQUEST     = 0xCDB702;     // id should be av's key, str should be cmd name "hug", "kiss", etc
-integer CPLANIM_PERMRESPONSE    = 0xCDB703;     // str should be "1" for got perms or "0" for not.  id should be av's key
-integer CPLANIM_START           = 0xCDB704;     // str should be valid anim name.  id should be av
-integer CPLANIM_STOP            = 0xCDB705;     // str should be valid anim name.  id should be av
-
-integer DIALOG                  = -0xCDB900;
-integer DIALOG_RESPONSE         = -0xCDB901;
-integer DIALOG_TIMEOUT          = -0xCDB902;
+$import lib.MessageMap.lslm ();
+$import lib.CommonVariables.lslm ();
+$import lib.CommonFunctions.lslm ();
 
 
 /*---------------//
 //  FUNCTIONS    //
 //---------------*/
-Debug (string sStr)
-{
-    if (g_iDebug){
-        llOwnerSay(llGetScriptName() + ": " + sStr);
-    }
-}
-
-Notify(key kID, string sMsg, integer iAlsoNotifyWearer) 
-{
-    if (kID == g_kWearer) 
-    {
-        llOwnerSay(sMsg);
-    } 
-    else 
-    {
-        llInstantMessage(kID,sMsg);
-        if (iAlsoNotifyWearer) 
-        {
-            llOwnerSay(sMsg);
-        }
-    }
-}
-
-key Dialog(key kRCPT, string sPrompt, list lChoices, list lUtilityButtons, integer iPage)
-{
-    key kID = llGenerateKey();
-    llMessageLinked(LINK_SET, DIALOG, (string)kRCPT + "|" + sPrompt + "|" + (string)iPage + "|" + llDumpList2String(lChoices, "`") + "|" + llDumpList2String(lUtilityButtons, "`"), kID);
-    return kID;
-}
-
 
 PartnerMenu(key kID, list kAvs)
 {
@@ -213,11 +139,6 @@ integer ValidLine(list lParams)
 integer StartsWith(string sHayStack, string sNeedle) // http://wiki.secondlife.com/wiki/llSubStringIndex
 {
     return llDeleteSubString(sHayStack, llStringLength(sNeedle), -1) == sNeedle;
-}
-
-string StringReplace(string sSrc, string sFrom, string sTo)
-{//replaces all occurrences of 'sFrom' with 'sTo' in 'sSrc'.
-    return llDumpList2String(llParseStringKeepNulls((sSrc = "") + sSrc, [sFrom], []), sTo);
 }
 
 PrettySay(string sText)
@@ -332,7 +253,7 @@ init()
 {
     g_kWearer = llGetOwner();
     g_iReady = FALSE;
-    llMessageLinked(LINK_SET, MENUNAME_REMOVE, g_sParentMenu + "|" + g_sSubMenu, NULL_KEY);
+    llMessageLinked(LINK_SET, MENU_REMOVE, g_sParentMenu + "|" + g_sSubMenu, NULL_KEY);
     if (llGetInventoryType(CARD1) == INVENTORY_NOTECARD)
     {//card is present, start reading
         g_kCardID1 = llGetInventoryKey(CARD1);
@@ -349,10 +270,10 @@ init()
 /*---------------//
 //  HANDLERS     //
 //---------------*/
-
+// pragma inline
 HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
 {
-    if (iNum == HTTPDB_RESPONSE)
+    if (iNum == SETTING_RESPONSE)
     {
         list lParams = llParseString2List(sStr, ["="], []);
         string sToken = llList2String(lParams, 0);
@@ -363,7 +284,7 @@ HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
         }
     }
 }
-
+// pragma inline
 HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum == DIALOG_RESPONSE)
@@ -376,7 +297,7 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
             integer iPage = (integer)llList2String(lMenuParams, 2);
             if (sMessage == UPMENU)
             {
-                llMessageLinked(LINK_SET, SUBMENU, g_sParentMenu, kAv);
+                llMessageLinked(LINK_SET, MENU_SUBMENU, g_sParentMenu, kAv);
             }
             else if (sMessage == STOP_COUPLES)
             {
@@ -412,14 +333,14 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
             else if ((integer)sMessage > 0 && ((string)((integer)sMessage) == sMessage))
             {
                 g_iAnimTimeOut = ((integer)sMessage);
-                llMessageLinked(LINK_SET, HTTPDB_SAVE, g_sDBToken + "=" + (string)g_iAnimTimeOut, NULL_KEY);
+                llMessageLinked(LINK_SET, SETTING_SAVE, g_sDBToken + "=" + (string)g_iAnimTimeOut, NULL_KEY);
                 Notify (kAv, "Couple Anmiations play now for " + (string)llRound(g_iAnimTimeOut) + " seconds.",TRUE);
                 CoupleAnimMenu(kAv);
             }
             else if (sMessage == "endless")
             {
                 g_iAnimTimeOut = 0;
-                llMessageLinked(LINK_SET, HTTPDB_SAVE, g_sDBToken + "=" + (string)g_iAnimTimeOut, NULL_KEY);
+                llMessageLinked(LINK_SET, SETTING_SAVE, g_sDBToken + "=" + (string)g_iAnimTimeOut, NULL_KEY);
                 Notify (kAv, "Couple Anmiations play now for ever. Use the menu or type *stopcouples to stop them again.",TRUE);
             }
             else
@@ -439,22 +360,22 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
         }
     }
 }
-
+// pragma inline
 HandleMENU(integer iSender, integer iNum, string sStr, key kID)
 {
-    if (iNum == SUBMENU)
+    if (iNum == MENU_SUBMENU)
     {
         if (sStr == g_sSubMenu)
         {
             CoupleAnimMenu(kID);
         }
     }
-    else if (iNum == MENUNAME_REQUEST && sStr == g_sParentMenu)
+    else if (iNum == MENU_REQUEST && sStr == g_sParentMenu)
     {
-        llMessageLinked(LINK_SET, MENUNAME_RESPONSE, g_sParentMenu + "|" + g_sSubMenu, NULL_KEY);
+        llMessageLinked(LINK_SET, MENU_RESPONSE, g_sParentMenu + "|" + g_sSubMenu, NULL_KEY);
     }
 /*
-    else if (iNum == MENUNAME_RESPONSE)
+    else if (iNum == MENU_RESPONSE)
     {
         list lParts = llParseString2List(sStr, ["|"], []);
         if (llList2String(lParts, 0) == g_sSubMenu)
@@ -466,7 +387,7 @@ HandleMENU(integer iSender, integer iNum, string sStr, key kID)
             }
         }
     }
-    else if (iNum == MENUNAME_REMOVE)
+    else if (iNum == MENU_REMOVE)
     {
         integer iIndex;
         list lParts = llParseString2List(sStr, ["|"], []);
@@ -482,7 +403,7 @@ HandleMENU(integer iSender, integer iNum, string sStr, key kID)
     }    
     */
 }
-
+// pragma inline
 HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum >= COMMAND_OWNER && iNum <= COMMAND_WEARER)
@@ -549,17 +470,17 @@ default
 
     link_message(integer iSender, integer iNum, string sStr, key kID)
     {
-        if ((iNum >= HTTPDB_SAVE) && (iNum <= HTTPDB_EMPTY))
+        if ((iNum >= SETTING_SAVE) && (iNum <= SETTING_EMPTY))
         {
             HandleHTTPDB(iSender,iNum,sStr,kID);
         }
-        else if ((iNum >= MENUNAME_REQUEST) && (iNum <= MENUNAME_REMOVE))
+        else if ((iNum >= MENU_REQUEST) && (iNum <= MENU_REMOVE))
         {
             HandleMENU(iSender,iNum,sStr,kID); 
         }
         if (g_iReady)
         {
-            if ((iNum >= DIALOG_TIMEOUT) && (iNum <= DIALOG))
+            if ((iNum >= DIALOG_TIMEOUT) && (iNum <= DIALOG_REQUEST))
             {
                 HandleDIALOG(iSender,iNum,sStr,kID);
             }        
@@ -601,14 +522,14 @@ default
                     {
                         //no Mycoupleanims notecard so...
                         g_iReady = TRUE;
-                        llMessageLinked(LINK_SET, MENUNAME_RESPONSE, g_sParentMenu + "|" + g_sSubMenu, NULL_KEY);
+                        llMessageLinked(LINK_SET, MENU_RESPONSE, g_sParentMenu + "|" + g_sSubMenu, NULL_KEY);
                     }
                 }
                 else
                 {
                     Debug("done reading card");
                     g_iReady = TRUE;
-                    llMessageLinked(LINK_SET, MENUNAME_RESPONSE, g_sParentMenu + "|" + g_sSubMenu, NULL_KEY);
+                    llMessageLinked(LINK_SET, MENU_RESPONSE, g_sParentMenu + "|" + g_sSubMenu, NULL_KEY);
                 }
             }
             else

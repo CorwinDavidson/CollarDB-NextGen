@@ -13,10 +13,6 @@
 //  VARIABLES  //
 //-------------*/
 
-integer g_iDebug = FALSE;
-
-key g_kWearer;
-
 // -----  HOVERTEXT --------------
 float min_z = 0.25 ; // min height
 float max_z = 1.0 ; // max height
@@ -55,62 +51,14 @@ float g_fScaleFactor = 1.00; // the size on rez is always regarded as 100% to pr
 integer g_iSizedByScript = FALSE; // prevent reseting of the script when the item has been chnged by the script
 list g_lPrimStartSizes; // area for initial prim sizes (stored on rez)
 
-/*---------------//
-//  MESSAGE MAP  //
-//---------------*/
-integer COMMAND_NOAUTH          = 0xCDB000;
-integer COMMAND_OWNER           = 0xCDB500;
-integer COMMAND_SECOWNER        = 0xCDB501;
-integer COMMAND_GROUP           = 0xCDB502;
-integer COMMAND_WEARER          = 0xCDB503;
-integer COMMAND_EVERYONE        = 0xCDB504;
-
-integer HTTPDB_SAVE             = 0xCDB200;     // scripts send messages on this channel to have settings saved to httpdb
-                                                // str must be in form of "token=value"
-integer HTTPDB_REQUEST          = 0xCDB201;     // when startup, scripts send requests for settings on this channel
-integer HTTPDB_RESPONSE         = 0xCDB202;     // the httpdb script will send responses on this channel
-integer HTTPDB_DELETE           = 0xCDB203;     // delete token from DB
-integer HTTPDB_EMPTY            = 0xCDB204;     // sent by httpdb script when a token has no value in the db
-integer HTTPDB_REQUEST_NOCACHE  = 0xCDB205;
-
-integer APPEARANCE_ALPHA        = -0xCDB800;
-integer APPEARANCE_COLOR        = -0xCDB801;
-integer APPEARANCE_TEXTURE      = -0xCDB802;
-integer APPEARANCE_POSITION     = -0xCDB803;
-integer APPEARANCE_ROTATION     = -0xCDB804;
-integer APPEARANCE_SIZE         = -0xCDB805;
-integer APPEARANCE_HOVER        = -0xCDB806;
-integer APPEARANCE_ALPHA_SETTINGS = -0xCDB810;
-integer APPEARANCE_SIZE_FACTOR  = -0xCDB815;
-integer APPEARANCE_HOVER_SETTINGS = -0xCDB816;
+$import lib.MessageMap.lslm ();
+$import lib.CommonVariables.lslm ();
+$import lib.CommonFunctions.lslm ();
 
 
 /*---------------//
 //  FUNCTIONS    //
 //---------------*/
-Debug (string sStr)
-{
-    if (g_iDebug){
-        llOwnerSay(llGetScriptName() + ": " + sStr);
-    }
-}
-
-Notify(key kID, string sMsg, integer iAlsoNotifyWearer) 
-{
-    if (kID == g_kWearer) 
-    {
-        llOwnerSay(sMsg);
-    } 
-    else 
-    {
-        llInstantMessage(kID,sMsg);
-        if (iAlsoNotifyWearer) 
-        {
-            llOwnerSay(sMsg);
-        }
-    }
-}
-
 
 BuildElementList()
 {
@@ -271,11 +219,11 @@ SetAllElementsAlpha(float fAlpha, integer bSaveHTTPDB)
     {
         if (llGetListLength(g_lAlphaSettings)>0)
         {
-            llMessageLinked(LINK_SET, HTTPDB_SAVE, g_sAlphaDBToken + "=" + llDumpList2String(g_lAlphaSettings, ","), NULL_KEY);
+            llMessageLinked(LINK_SET, SETTING_SAVE, g_sAlphaDBToken + "=" + llDumpList2String(g_lAlphaSettings, ","), NULL_KEY);
         }
         else
         {
-            llMessageLinked(LINK_SET, HTTPDB_DELETE, g_sAlphaDBToken, NULL_KEY);
+            llMessageLinked(LINK_SET, SETTING_DELETE, g_sAlphaDBToken, NULL_KEY);
         }
     }
 }
@@ -310,11 +258,11 @@ SetElementAlpha(string sElement2Set, float fAlpha, integer bSaveHTTPDB)
     {
         if (llGetListLength(g_lAlphaSettings)>0)
         {
-            llMessageLinked(LINK_SET, HTTPDB_SAVE, g_sAlphaDBToken + "=" + llDumpList2String(g_lAlphaSettings, ","), NULL_KEY);
+            llMessageLinked(LINK_SET, SETTING_SAVE, g_sAlphaDBToken + "=" + llDumpList2String(g_lAlphaSettings, ","), NULL_KEY);
         }
         else
         {
-            llMessageLinked(LINK_SET, HTTPDB_DELETE, g_sAlphaDBToken, NULL_KEY);
+            llMessageLinked(LINK_SET, SETTING_DELETE, g_sAlphaDBToken, NULL_KEY);
         }
     }
 }
@@ -360,7 +308,7 @@ SetElementColor(string sElement2Set, vector vColor, integer bSaveHTTPDB)
     }
     if (bSaveHTTPDB)
     {
-        llMessageLinked(LINK_SET, HTTPDB_SAVE, g_sColorDBToken + "=" + llDumpList2String(g_lColorSettings, "~"), NULL_KEY);
+        llMessageLinked(LINK_SET, SETTING_SAVE, g_sColorDBToken + "=" + llDumpList2String(g_lColorSettings, "~"), NULL_KEY);
     }
 }
 
@@ -412,7 +360,7 @@ SetElementTexture(string sElement2Set, key kTex,integer bSaveHTTPDB)
     }
     if (bSaveHTTPDB)
     {
-        llMessageLinked(LINK_SET, HTTPDB_SAVE, g_sTextureDBToken + "=" + llDumpList2String(g_lTextureSettings, "~"), NULL_KEY);
+        llMessageLinked(LINK_SET, SETTING_SAVE, g_sTextureDBToken + "=" + llDumpList2String(g_lTextureSettings, "~"), NULL_KEY);
     }
 }
 
@@ -507,11 +455,11 @@ TextDisplay()
  
     if (llGetListLength(g_lHoverTextSettings)>0)
     {
-        llMessageLinked(LINK_SET, HTTPDB_SAVE, g_sHoverTextDBToken + "=" + llDumpList2String(g_lHoverTextSettings, "~"), NULL_KEY);
+        llMessageLinked(LINK_SET, SETTING_SAVE, g_sHoverTextDBToken + "=" + llDumpList2String(g_lHoverTextSettings, "~"), NULL_KEY);
     }
     else
     {
-        llMessageLinked(LINK_SET, HTTPDB_DELETE, g_sHoverTextDBToken, NULL_KEY);
+        llMessageLinked(LINK_SET, SETTING_DELETE, g_sHoverTextDBToken, NULL_KEY);
     }
 }
 
@@ -524,10 +472,10 @@ ShowText(string sNewText)
 /*---------------//
 //  HANDLERS     //
 //---------------*/
-
+// pragma inline
 HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
 {
-    if (iNum == HTTPDB_RESPONSE)
+    if (iNum == SETTING_RESPONSE)
     {
         list lParams = llParseString2List(sStr, ["="], []);
         string sToken = llList2String(lParams, 0);
@@ -563,7 +511,7 @@ HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
 }
 
 
-
+// pragma inline
 HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
 {
     list lParams = llParseString2List(sStr, [" "], []);
@@ -671,7 +619,7 @@ HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
         }
     }    
 }
-
+// pragma inline
 HandleAPPEARANCE(integer iSender, integer iNum, string sStr, key kID)
 {
     list lParams = llParseString2List(sStr, ["§"], []);
@@ -733,12 +681,12 @@ default
         }     
         llRequestPermissions(g_kWearer, PERMISSION_TAKE_CONTROLS);
         llSetTimerEvent(15.0);
-        llMessageLinked(LINK_SET,HTTPDB_REQUEST,g_sHoverTextDBToken,NULL_KEY);
+        llMessageLinked(LINK_SET,SETTING_REQUEST,g_sHoverTextDBToken,NULL_KEY);
     }
     
     link_message(integer iSender, integer iNum, string sStr, key kID)
     {
-        if ((iNum >= HTTPDB_SAVE) && (iNum <= HTTPDB_REQUEST_NOCACHE))
+        if ((iNum >= SETTING_SAVE) && (iNum <= SETTING_REQUEST_NOCACHE))
         {
             HandleHTTPDB(iSender,iNum,sStr,kID);
         } 
@@ -783,7 +731,7 @@ default
 
     on_rez(integer start)
     {
-        llMessageLinked(LINK_SET,HTTPDB_REQUEST,g_sHoverTextDBToken,NULL_KEY);
+        llMessageLinked(LINK_SET,SETTING_REQUEST,g_sHoverTextDBToken,NULL_KEY);
     }
 
     run_time_permissions(integer nParam)

@@ -11,13 +11,11 @@
 
 //CollarDB - appearance
 //handle appearance menu
-//handle saving position on detach, and restoring it on httpdb_response
+//handle saving position on detach, and restoring it on SETTING_response
 
 /*-------------//
 //  VARIABLES  //
 //-------------*/
-
-integer g_iDebug = FALSE;
 
 string g_sSubMenu = "Appearance";
 string g_sParentMenu = "Main";
@@ -52,10 +50,6 @@ string HELP = "Help";
 list g_lMenuIDs;//3-strided list of avkey, dialogid, menuname
 integer g_iMenuStride = 3;
 
-//string UPMENU = "?";//when your menu hears this, give the parent menu
-string UPMENU = "^";
-
-key g_kWearer;
 integer g_iRemenu;
 
 string POSMENU = "Position";
@@ -68,7 +62,6 @@ string ELEMENTMENU;
 
 list g_lLocalButtons = [POSMENU, ROTMENU, SIZEMENU, TEXTUREMENU , COLORMENU, HIDEMENU]; //[POSMENU, ROTMENU];
 list g_lRemoteButtons;
-list g_lButtons;
 
 float g_fSmallNudge=0.0005;
 float g_fMediumNudge=0.005;
@@ -114,7 +107,6 @@ string SHOWN = "Shown";
 string HIDDEN = "Hidden";
 string ALL = "All";
 string g_sType = "";
-key g_kDialogID;
 
 
 key g_kUser;
@@ -128,7 +120,7 @@ integer g_iPagesize = 10;
 integer g_iLength;
 list g_lNewButtons;
 
-string g_sHTTPDB_Url = "http://data.collardb.com/"; //defaul OC url, can be changed in defaultsettings notecard and wil be send by settings script if changed
+string g_sSETTING_Url = "http://data.collardb.com/"; //defaul OC url, can be changed in defaultsettings notecard and wil be send by settings script if changed
 
 // Textures in Notecard for Non Full Perm textures
 key g_ktexcardID;
@@ -138,85 +130,15 @@ list g_textures = [];
 list g_read = [];
 
 // Integrated Alpha / Color / Texture
-
-/*---------------//
-//  MESSAGE MAP  //
-//---------------*/
-integer COMMAND_NOAUTH          = 0xCDB000;
-integer COMMAND_OWNER           = 0xCDB500;
-integer COMMAND_SECOWNER        = 0xCDB501;
-integer COMMAND_GROUP           = 0xCDB502;
-integer COMMAND_WEARER          = 0xCDB503;
-integer COMMAND_EVERYONE        = 0xCDB504;
-integer COMMAND_OBJECT          = 0xCDB506;
-integer COMMAND_RLV_RELAY       = 0xCDB507;
-
-integer POPUP_HELP              = -0xCDB001;      
-
-integer HTTPDB_SAVE             = 0xCDB200;     // scripts send messages on this channel to have settings saved to httpdb
-                                                // str must be in form of "token=value"
-integer HTTPDB_REQUEST          = 0xCDB201;     // when startup, scripts send requests for settings on this channel
-integer HTTPDB_RESPONSE         = 0xCDB202;     // the httpdb script will send responses on this channel
-integer HTTPDB_DELETE           = 0xCDB203;     // delete token from DB
-integer HTTPDB_EMPTY            = 0xCDB204;     // sent by httpdb script when a token has no value in the db
-
-integer MENUNAME_REQUEST        = 0xCDB300;
-integer MENUNAME_RESPONSE       = 0xCDB301;
-integer SUBMENU                 = 0xCDB302;
-integer MENUNAME_REMOVE         = 0xCDB303;
-
-integer RLV_CMD                 = 0xCDB600;
-integer RLV_REFRESH             = 0xCDB601;     // RLV plugins should reinstate their restrictions upon receiving this message.
-integer RLV_CLEAR               = 0xCDB602;     // RLV plugins should clear their restriction lists upon receiving this message.
-
-integer ANIM_START              = 0xCDB700;     // send this with the name of an anim in the string part of the message to play the anim
-integer ANIM_STOP               = 0xCDB701;     // send this with the name of an anim in the string part of the message to stop the anim
-integer CPLANIM_PERMREQUEST     = 0xCDB702;     // id should be av's key, str should be cmd name "hug", "kiss", etc
-integer CPLANIM_PERMRESPONSE    = 0xCDB703;     // str should be "1" for got perms or "0" for not.  id should be av's key
-integer CPLANIM_START           = 0xCDB704;     // str should be valid anim name.  id should be av
-integer CPLANIM_STOP            = 0xCDB705;     // str should be valid anim name.  id should be av
-
-integer APPEARANCE_ALPHA        = -0xCDB800;
-integer APPEARANCE_COLOR        = -0xCDB801;
-integer APPEARANCE_TEXTURE      = -0xCDB802;
-integer APPEARANCE_POSITION     = -0xCDB803;
-integer APPEARANCE_ROTATION     = -0xCDB804;
-integer APPEARANCE_SIZE         = -0xCDB805;
-integer APPEARANCE_HOVER        = -0xCDB806;
-integer APPEARANCE_ALPHA_SETTINGS = -0xCDB810;
-integer APPEARANCE_SIZE_FACTOR  = -0xCDB815;
-
-
-integer DIALOG                  = -0xCDB900;
-integer DIALOG_RESPONSE         = -0xCDB901;
-integer DIALOG_TIMEOUT          = -0xCDB902;
+$import lib.MessageMap.lslm ();
+$import lib.CommonVariables.lslm ();
+$import lib.CommonFunctions.lslm ();
 
 
 /*---------------//
 //  FUNCTIONS    //
 //---------------*/
-Debug (string sStr)
-{
-    if (g_iDebug){
-        llOwnerSay(llGetScriptName() + ": " + sStr);
-    }
-}
 
-Notify(key kID, string sMsg, integer iAlsoNotifyWearer) 
-{
-    if (kID == g_kWearer) 
-    {
-        llOwnerSay(sMsg);
-    } 
-    else 
-    {
-        llInstantMessage(kID,sMsg);
-        if (iAlsoNotifyWearer) 
-        {
-            llOwnerSay(sMsg);
-        }
-    }
-}
 
 // Integrated Alpha / Color / Texture
 
@@ -390,11 +312,6 @@ MenuIDAdd(key kAv, key kMenuID, string sMenu)
     }
 }
 
-integer StartsWith(string sHayStack, string sNeedle) // http://wiki.secondlife.com/wiki/llSubStringIndex
-{
-    return llDeleteSubString(sHayStack, llStringLength(sNeedle), -1) == sNeedle;
-}
-
 loadNoteCards(string param)
 {
     if (g_noteName != "" &&  param == "EOF")
@@ -416,7 +333,7 @@ loadNoteCards(string param)
         for (n=0;n<iNumNote;n++)
         {
             string sName = llGetInventoryName(INVENTORY_NOTECARD,n);
-            if (StartsWith(llToLower(sName),"~cdbt_"))
+            if (startswith(llToLower(sName),"~cdbt_"))
             {
                 if (llListFindList(g_read,[sName]) == -1)
                 {
@@ -433,14 +350,6 @@ loadNoteCards(string param)
 
 
 // Integrated Alpha / Color / Texture
-
-key Dialog(key kRCPT, string sPrompt, list lChoices, list lUtilityButtons, integer iPage)
-{
-    key kID = llGenerateKey();
-    llMessageLinked(LINK_SET, DIALOG, (string)kRCPT + "|" + sPrompt + "|" + (string)iPage + "|" + llDumpList2String(lChoices, "`") + "|" + llDumpList2String(lUtilityButtons, "`"), kID);
-    return kID;
-}
-
 
 LoadHoverTextSettings()
 {
@@ -538,18 +447,13 @@ DoMenu(key kAv)
     MenuIDAdd(kAv, kMenuID, g_sSubMenu);   
 }
 
-string GetDBPrefix()
-{//get db prefix from list in object desc
-    return llList2String(llParseString2List(llGetObjectDesc(), ["~"], []), 2);
-}
-
 /*---------------//
 //  HANDLERS     //
 //---------------*/
-
+// pragma inline
 HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
 {
-    if (iNum == HTTPDB_RESPONSE)
+    if (iNum == SETTING_RESPONSE)
     {
         list lParams = llParseString2List(sStr, ["="], []);
         string sToken = llList2String(lParams, 0);
@@ -565,7 +469,7 @@ HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
             LoadHoverTextSettings();
         }         
     }
-    if (iNum == HTTPDB_SAVE)
+    if (iNum == SETTING_SAVE)
     {
         list lParams = llParseString2List(sStr, ["="], []);
         string sToken = llList2String(lParams, 0);
@@ -578,7 +482,7 @@ HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
     }
 }
 
-
+// pragma inline
 HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum == DIALOG_RESPONSE)
@@ -600,7 +504,7 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
                 if (sMessage == UPMENU)
                 {
                     //give kID the parent menu
-                    llMessageLinked(LINK_SET, SUBMENU, g_sParentMenu, kAv);
+                    llMessageLinked(LINK_SET, MENU_SUBMENU, g_sParentMenu, kAv);
                 }
                 else if(llGetSubString(sMessage, llStringLength(TICKED), -1) == APPLOCK)
                 {
@@ -654,7 +558,7 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
                 else if (~llListFindList(g_lRemoteButtons, [sMessage]))
                 {
                     //we got a submenu selection
-                    llMessageLinked(LINK_SET, SUBMENU, sMessage, kAv);
+                    llMessageLinked(LINK_SET, MENU_SUBMENU, sMessage, kAv);
                 }                                
             }
             else if (sMenuType == g_sSubMenu2)
@@ -665,7 +569,7 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
                 } 
                 else if (sMessage == UPMENU) 
                 {
-                    llMessageLinked(LINK_SET, SUBMENU, g_sParentMenu2, kAv);
+                    llMessageLinked(LINK_SET, MENU_SUBMENU, g_sParentMenu2, kAv);
                 } 
                 else 
                 {
@@ -831,7 +735,7 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
                     if (g_sCurrentElement == "")
                     {
                         //main menu
-                        llMessageLinked(LINK_SET, SUBMENU, g_sParentMenu, kAv);
+                        llMessageLinked(LINK_SET, MENU_SUBMENU, g_sParentMenu, kAv);
                     }
                     else if (g_sCurrentCategory == "")
                     {
@@ -860,7 +764,7 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
                     g_sCurrentCategory = sMessage;
                     g_iPage = 0;
                     g_kUser = kAv;
-                    string sUrl = g_sHTTPDB_Url + "static/colors-" + g_sCurrentCategory + ".txt";
+                    string sUrl = g_sSETTING_Url + "static/colors-" + g_sCurrentCategory + ".txt";
                     g_kHTTPID = llHTTPRequest(sUrl, [HTTP_METHOD, "GET"], "");
                 }
                 else if (~(integer)llListFindList(g_lColors, [sMessage]))
@@ -879,7 +783,7 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
                     if (g_sCurrentElement == "")
                     {
                         //main menu
-                        llMessageLinked(LINK_SET, SUBMENU, g_sParentMenu, kAv);
+                        llMessageLinked(LINK_SET, MENU_SUBMENU, g_sParentMenu, kAv);
                     }
                     else
                     {
@@ -942,7 +846,7 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
                     if (g_sCurrentElement == "")
                     {
                         //main menu
-                        llMessageLinked(LINK_SET, SUBMENU, g_sParentMenu, kAv);
+                        llMessageLinked(LINK_SET, MENU_SUBMENU, g_sParentMenu, kAv);
                     }
                     else if (g_sCurrentCategory == "")
                     {
@@ -988,10 +892,10 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
         }            
     }
 }
-
+// pragma inline
 HandleMENU(integer iSender, integer iNum, string sStr, key kID)
 {
-    if (iNum == SUBMENU)
+    if (iNum == MENU_SUBMENU)
     {
         if (sStr == g_sSubMenu)
         {
@@ -1004,12 +908,12 @@ HandleMENU(integer iSender, integer iNum, string sStr, key kID)
 //            llMessageLinked(LINK_ROOT, POPUP_HELP, "To set floating text , say _PREFIX_text followed by the text you wish to set.  \nExample: _PREFIX_text I have text above my head!", kID);
         }
     }
-    else if (iNum == MENUNAME_REQUEST && sStr == g_sParentMenu)
+    else if (iNum == MENU_REQUEST && sStr == g_sParentMenu)
     {
-        llMessageLinked(LINK_SET, MENUNAME_RESPONSE, g_sParentMenu + "|" + g_sSubMenu, NULL_KEY);
-        llMessageLinked(LINK_SET, MENUNAME_RESPONSE, g_sParentMenu2 + "|" + g_sSubMenu2, NULL_KEY);
+        llMessageLinked(LINK_SET, MENU_RESPONSE, g_sParentMenu + "|" + g_sSubMenu, NULL_KEY);
+        llMessageLinked(LINK_SET, MENU_RESPONSE, g_sParentMenu2 + "|" + g_sSubMenu2, NULL_KEY);
     }
-    else if (iNum == MENUNAME_RESPONSE)
+    else if (iNum == MENU_RESPONSE)
     {
         list lParts = llParseString2List(sStr, ["|"], []);
         if (llList2String(lParts, 0) == g_sSubMenu)
@@ -1022,7 +926,7 @@ HandleMENU(integer iSender, integer iNum, string sStr, key kID)
         }
     }
 }
-
+// pragma inline
 HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum >= COMMAND_OWNER && iNum <= COMMAND_WEARER)
@@ -1037,14 +941,14 @@ HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
         {
             g_lButtons = [];
             g_lRemoteButtons = [];
-            llMessageLinked(LINK_SET, MENUNAME_REQUEST, g_sSubMenu, NULL_KEY);
+            llMessageLinked(LINK_SET, MENU_REQUEST, g_sSubMenu, NULL_KEY);
         }
         else if (sStr == "appearance")
         {
             if (kID!=g_kWearer && iNum!=COMMAND_OWNER)
             {
                 Notify(kID,"You are not allowed to change the collar appearance.", FALSE);
-                if (g_iRemenu) llMessageLinked(LINK_SET, SUBMENU, g_sParentMenu, kID);
+                if (g_iRemenu) llMessageLinked(LINK_SET, MENU_SUBMENU, g_sParentMenu, kID);
             }
             else DoMenu(kID);
             g_iRemenu=FALSE;
@@ -1054,7 +958,7 @@ HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
             if (kID!=g_kWearer && iNum!=COMMAND_OWNER)
             {
                 Notify(kID,"You are not allowed to change hover text.", FALSE);
-                if (g_iRemenu) llMessageLinked(LINK_SET, SUBMENU, g_sParentMenu2, kID);
+                if (g_iRemenu) llMessageLinked(LINK_SET, MENU_SUBMENU, g_sParentMenu2, kID);
             }
             else HoverMenu(kID);
             g_iRemenu=FALSE;
@@ -1105,13 +1009,13 @@ HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
                 if(llGetSubString(sStr, -1, -1) == "0")
                 {
                     g_iAppLock = FALSE;
-                    llMessageLinked(LINK_SET, HTTPDB_DELETE, g_sAppLockToken, NULL_KEY);
+                    llMessageLinked(LINK_SET, SETTING_DELETE, g_sAppLockToken, NULL_KEY);
                     llMessageLinked(LINK_SET, COMMAND_OWNER, "lockappearance 0", kID);
                 }
                 else
                 {
                     g_iAppLock = TRUE;
-                    llMessageLinked(LINK_SET, HTTPDB_SAVE, g_sAppLockToken + "=1", NULL_KEY);
+                    llMessageLinked(LINK_SET, SETTING_SAVE, g_sAppLockToken + "=1", NULL_KEY);
                     llMessageLinked(LINK_SET, COMMAND_OWNER, "lockappearance 1", kID);
                 }
             }
@@ -1214,7 +1118,7 @@ HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
         }                 
     }
 }
-
+// pragma inline
 HandleAPPEARANCE(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum == APPEARANCE_SIZE_FACTOR)
@@ -1265,15 +1169,15 @@ default
 
     link_message(integer iSender, integer iNum, string sStr, key kID)
     {
-        if ((iNum >= HTTPDB_SAVE) && (iNum <= HTTPDB_EMPTY))
+        if ((iNum >= SETTING_SAVE) && (iNum <= SETTING_EMPTY))
         {
             HandleHTTPDB(iSender,iNum,sStr,kID);
         }
-        else if ((iNum >= MENUNAME_REQUEST) && (iNum <= MENUNAME_REMOVE))
+        else if ((iNum >= MENU_REQUEST) && (iNum <= MENU_REMOVE))
         {
             HandleMENU(iSender,iNum,sStr,kID); 
         }
-        else if ((iNum >= DIALOG_TIMEOUT) && (iNum <= DIALOG))
+        else if ((iNum >= DIALOG_TIMEOUT) && (iNum <= DIALOG_REQUEST))
         {
             HandleDIALOG(iSender,iNum,sStr,kID);
         }        

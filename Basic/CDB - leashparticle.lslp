@@ -13,17 +13,13 @@
 //  VARIABLES  //
 //-------------*/
 
-integer g_iDebug = FALSE;
 integer LOCKMEISTER         = -8888;
 integer LOCKGUARD           = -9119;
 integer g_iLMListener;
 integer g_iLMListernerDetach;
 
-integer COMMAND_PARTICLE = 20000;
-integer COMMAND_LEASH_SENSOR = 20001;
 
 // --- menu tokens ---
-string UPMENU       = "^";
 string MORE         = ">";
 string g_sParentMenu   = "Leash";
 string g_sSubMenu      = "L-Options";
@@ -38,13 +34,13 @@ list g_lSettings; //["tex", "texName", "size", "0.07", "color", "1,1,1", "gravit
 
 string g_sCurrentMenu = "";
 string g_sMenuUser;
-key g_kDialogID;
+
 
 string g_sCurrentCategory = "";
 list g_lCategories = ["Blues", "Browns", "Grays", "Greens", "Purples", "Reds", "Yellows"];
 list g_lColors;
 key g_kHTTPID;
-string g_sHTTPDB_Url = "http://data.collardb.com/";
+string g_sSETTING_Url = "http://data.collardb.com/";
 
 // Textures in Notecard for Non Full Perm textures
 key g_ktexcardID;
@@ -56,7 +52,6 @@ list g_read = [];
 
 // ----- collar -----
 //string g_sWearerName;
-key g_kWearer;
 
 key NULLKEY = "";
 key g_kLeashedTo = NULLKEY;
@@ -77,71 +72,15 @@ list g_lLeashPrims;
 integer g_iLoop;
 
 
+$import lib.MessageMap.lslm ();
+$import lib.CommonVariables.lslm ();
+$import lib.CommonFunctions.lslm ();
 
-
-/*---------------//
-//  MESSAGE MAP  //
-//---------------*/
-integer COMMAND_NOAUTH          = 0xCDB000;
-integer COMMAND_OWNER           = 0xCDB500;
-integer COMMAND_SECOWNER        = 0xCDB501;
-integer COMMAND_GROUP           = 0xCDB502;
-integer COMMAND_WEARER          = 0xCDB503;
-integer COMMAND_EVERYONE        = 0xCDB504;
-integer COMMAND_SAFEWORD        = 0xCDB510;
-
-integer POPUP_HELP              = -0xCDB001;      
-
-integer HTTPDB_SAVE             = 0xCDB200;     // scripts send messages on this channel to have settings saved to httpdb
-                                                // str must be in form of "token=value"
-integer HTTPDB_REQUEST          = 0xCDB201;     // when startup, scripts send requests for settings on this channel
-integer HTTPDB_RESPONSE         = 0xCDB202;     // the httpdb script will send responses on this channel
-integer HTTPDB_DELETE           = 0xCDB203;     // delete token from DB
-integer HTTPDB_EMPTY            = 0xCDB204;     // sent by httpdb script when a token has no value in the db
-
-integer LOCALSETTING_SAVE       = 0xCDB250;
-integer LOCALSETTING_REQUEST    = 0xCDB251;
-integer LOCALSETTING_RESPONSE   = 0xCDB252;
-integer LOCALSETTING_DELETE     = 0xCDB253;
-integer LOCALSETTING_EMPTY      = 0xCDB254;
-
-integer MENUNAME_REQUEST        = 0xCDB300;
-integer MENUNAME_RESPONSE       = 0xCDB301;
-integer MENUNAME_SUBMENU        = 0xCDB302;
-integer MENUNAME_REMOVE         = 0xCDB303;
-
-integer RLV_CMD                 = 0xCDB600;
-
-integer DIALOG                  = -0xCDB900;
-integer DIALOG_RESPONSE         = -0xCDB901;
-integer DIALOG_TIMEOUT          = -0xCDB902;
 
 
 /*---------------//
 //  FUNCTIONS    //
 //---------------*/
-Debug (string sStr)
-{
-    if (g_iDebug){
-        llOwnerSay(llGetScriptName() + ": " + sStr);
-    }
-}
-
-Notify(key kID, string sMsg, integer iAlsoNotifyWearer) 
-{
-    if (kID == g_kWearer) 
-    {
-        llOwnerSay(sMsg);
-    } 
-    else 
-    {
-        llInstantMessage(kID,sMsg);
-        if (iAlsoNotifyWearer) 
-        {
-            llOwnerSay(sMsg);
-        }
-    }
-}
 
 FindLinkedPrims()
 {
@@ -293,7 +232,7 @@ SaveSettings(string sToken, string sSave, integer bSaveToLocal)
     if (bSaveToLocal)
     {
         string sToSave = "leash=" + llDumpList2String(g_lSettings, ",");
-        llMessageLinked(LINK_THIS, LOCALSETTING_SAVE, sToSave, NULLKEY);
+        llMessageLinked(LINK_THIS, SETTING_SAVE, sToSave, NULLKEY);
     }
 }
 
@@ -349,22 +288,10 @@ SetTexture(string sIn, key kIn)
     }
 }
 
-integer KeyIsAv(key id)
-{
-    return llGetAgentSize(id) != ZERO_VECTOR;
-}
 
 //Menus
 // Create a random "key" for dialog uniqueness
 // "chars" provides hexadecimal characters for the function to choose from
-
-key Dialog(key kRCPT, string sPrompt, list lChoices, list lUtilityButtons, integer iPage)
-{
-    //debug("dialog:"+(string)llGetFreeMemory( ));
-    key kID = llGenerateKey();
-    llMessageLinked(LINK_SET, DIALOG, (string)kRCPT + "|" + sPrompt + "|" + (string)iPage + "|" + llDumpList2String(lChoices, "`") + "|" + llDumpList2String(lUtilityButtons, "`"), kID);
-    return kID;
-}
 
 OptionsMenu(key kIn)
 {
@@ -517,10 +444,10 @@ loadNoteCards(string param)
 /*---------------//
 //  HANDLERS     //
 //---------------*/
-
+// pragma inline
 HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
 {
-    if (iNum == HTTPDB_RESPONSE)
+    if (iNum == SETTING_RESPONSE)
     {
         //debug("HTTPDBResponse: " + sStr);
         integer iIndex = llSubStringIndex(sStr, "=");
@@ -575,7 +502,7 @@ HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
             }
         }
     }
-    else if (iNum == HTTPDB_EMPTY)
+    else if (iNum == SETTING_EMPTY)
     {
         //debug("HTTPDB EMPTY");
         if (sStr == ("leash" + L_TEXTURE)) // no designer-set texture
@@ -588,10 +515,10 @@ HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
         }
     }
 }
-
+// pragma inline
 HandleLOCALSETTING(integer iSender, integer iNum, string sStr, key kID)
 {
-    if (iNum == LOCALSETTING_RESPONSE)
+    if (iNum == SETTING_RESPONSE)
     {
         //debug("LocalSettingsResponse: " + sStr);
         integer iIndex = llSubStringIndex(sStr, "=");
@@ -636,7 +563,7 @@ HandleLOCALSETTING(integer iSender, integer iNum, string sStr, key kID)
         }
     }
 }
-
+// pragma inline
 HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum == DIALOG_RESPONSE)
@@ -651,7 +578,7 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
             {
                 if(g_sCurrentMenu == g_sSubMenu)
                 {
-                    llMessageLinked(LINK_SET, MENUNAME_SUBMENU, g_sParentMenu, kAV);
+                    llMessageLinked(LINK_SET, MENU_SUBMENU, g_sParentMenu, kAV);
                 }
                 else if (g_sCurrentMenu == L_COLOR)
                 {
@@ -675,7 +602,7 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
                     g_lSettings = g_lDefaultSettings;
                     Notify(g_sMenuUser, "Leash-settings restored to collar defaults.", FALSE);
                     // Cleo: as we use standard, no reason to keep the local settings
-                    llMessageLinked(LINK_SET, LOCALSETTING_DELETE, "leash", NULL_KEY);
+                    llMessageLinked(LINK_SET, SETTING_DELETE, "leash", NULL_KEY);
                     if (!g_bInvisibleLeash && g_bLeashActive)
                     {
                         StartParticles(g_kParticleTarget);
@@ -718,7 +645,7 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
                 g_lColors = [];
                 g_sCurrentCategory = sButton;
                 g_sMenuUser = kAV;
-                string sUrl = g_sHTTPDB_Url + "static/colors-" + g_sCurrentCategory + ".txt";
+                string sUrl = g_sSETTING_Url + "static/colors-" + g_sCurrentCategory + ".txt";
                 g_kHTTPID = llHTTPRequest(sUrl, [HTTP_METHOD, "GET"], "");
             }
             else if (g_sCurrentMenu == L_COLOR)
@@ -863,10 +790,10 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
         }
     }
 }
-
+// pragma inline
 HandleMENU(integer iSender, integer iNum, string sStr, key kID)
 {
-    if (iNum == MENUNAME_SUBMENU)
+    if (iNum == MENU_SUBMENU)
     {
         if (sStr == g_sSubMenu)
         {
@@ -874,14 +801,14 @@ HandleMENU(integer iSender, integer iNum, string sStr, key kID)
         }
         else if (sStr == UPMENU)
         {
-            llMessageLinked(LINK_SET, MENUNAME_SUBMENU, g_sParentMenu , NULL_KEY);
+            llMessageLinked(LINK_SET, MENU_SUBMENU, g_sParentMenu , NULL_KEY);
         }
     }
-    else if (iNum == MENUNAME_REQUEST && sStr == g_sParentMenu)
+    else if (iNum == MENU_REQUEST && sStr == g_sParentMenu)
     {
-         llMessageLinked(LINK_SET, MENUNAME_RESPONSE, g_sParentMenu + "|" + g_sSubMenu, NULL_KEY);
+         llMessageLinked(LINK_SET, MENU_RESPONSE, g_sParentMenu + "|" + g_sSubMenu, NULL_KEY);
     }
-    else if (iNum == MENUNAME_RESPONSE)
+    else if (iNum == MENU_RESPONSE)
     {
         /*
         list lParts = llParseString2List(sStr, ["|"], []);
@@ -896,7 +823,7 @@ HandleMENU(integer iSender, integer iNum, string sStr, key kID)
         */
     }
 }
-
+// pragma inline
 HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum >= COMMAND_OWNER && iNum <= COMMAND_WEARER)
@@ -928,7 +855,7 @@ default
         FindLinkedPrims();
         SetTexture(g_sParticleTexture, NULLKEY);
         llSleep(1.0);
-        llMessageLinked(LINK_SET, MENUNAME_RESPONSE, g_sParentMenu + "|" + g_sSubMenu, NULL_KEY);
+        llMessageLinked(LINK_SET, MENU_RESPONSE, g_sParentMenu + "|" + g_sSubMenu, NULL_KEY);
         g_kWearer = llGetOwner();
         //llOwnerSay((string)llGetFreeMemory());
     }
@@ -939,19 +866,19 @@ default
 
     link_message(integer iSender, integer iNum, string sStr, key kID)
     {
-        if ((iNum >= HTTPDB_SAVE) && (iNum <= HTTPDB_EMPTY))
+        if ((iNum >= SETTING_SAVE) && (iNum <= SETTING_EMPTY))
         {
             HandleHTTPDB(iSender,iNum,sStr,kID);
         }
-        else if ((iNum >= LOCALSETTING_SAVE) && (iNum <= LOCALSETTING_EMPTY))
+        else if ((iNum >= SETTING_SAVE) && (iNum <= SETTING_EMPTY))
         {
             HandleLOCALSETTING(iSender,iNum,sStr,kID);
         }
-        else if ((iNum >= MENUNAME_REQUEST) && (iNum <= MENUNAME_REMOVE))
+        else if ((iNum >= MENU_REQUEST) && (iNum <= MENU_REMOVE))
         {
             HandleMENU(iSender,iNum,sStr,kID); 
         }
-        else if ((iNum >= DIALOG_TIMEOUT) && (iNum <= DIALOG))
+        else if ((iNum >= DIALOG_TIMEOUT) && (iNum <= DIALOG_REQUEST))
         {
             HandleDIALOG(iSender,iNum,sStr,kID);
         }        

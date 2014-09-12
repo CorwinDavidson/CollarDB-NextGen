@@ -13,8 +13,6 @@
 //  VARIABLES  //
 //-------------*/
 
-integer g_iDebug = TRUE;
-
 // ------ TOKEN DEFINITIONS ------
 // ---- Immutable ----
 // - Should be constant across collars, so not prefixed
@@ -26,11 +24,7 @@ string TOK_DEST     = "leashedto"; // format: uuid,rank
 
 integer LOCKMEISTER         = -8888;
 
-integer COMMAND_PARTICLE = 20000;
-integer COMMAND_LEASH_SENSOR = 20001;
-
 // --- menu tokens ---
-string UPMENU       = "^";
 string MORE         = ">";
 string g_sParentMenu   = "Main";
 string g_sSubMenu      = "Leash";
@@ -63,25 +57,21 @@ integer SENSORMODE_FIND_TARGET_FOR_LEASH_MENU   = 100;
 integer SENSORMODE_FIND_TARGET_FOR_FOLLOW_MENU  = 101;
 integer SENSORMODE_FIND_TARGET_FOR_POST_MENU    = 102;
 
-// key NULLKEY = NULL_KEY; - Starship, this actually takes away from mem by adding a global for a pre-defined value
 // ---------------------------------------------
 // ------ VARIABLE DEFINITIONS ------
 // ----- menu -----
-//integer g_iListen;
+
 string g_sCurrentMenu = "";
-//string g_sPostPrompt;
+
+string g_sWearer;
 string g_sMenuUser;
-key g_kDialogID;
-list g_lButtons = [L_LENGTH, LEASH_TO, FOLLOW_MENU, GIVE_HOLDER, L_POST, REZ_POST, GIVE_POST];
+
 list g_oButtons = [LEASH, FOLLOW, L_YANK];
 
-//list g_lPostButtons;
 list g_lPostKeys;
 
 // ----- collar -----
-//string g_sMyID;
-string g_sWearer;
-key g_kWearer;
+
 integer g_iJustMoved;
 // ----- leash -----
 float g_fLength = 3.0;
@@ -109,70 +99,13 @@ list g_lLengths = ["1", "2", "3", "4", "5", "8","10" , "15", "20", "25", "30"];
 
 integer g_iUnixTime;
 
-/*---------------//
-//  MESSAGE MAP  //
-//---------------*/
-integer COMMAND_NOAUTH          = 0xCDB000;
-integer COMMAND_OWNER           = 0xCDB500;
-integer COMMAND_SECOWNER        = 0xCDB501;
-integer COMMAND_GROUP           = 0xCDB502;
-integer COMMAND_WEARER          = 0xCDB503;
-integer COMMAND_EVERYONE        = 0xCDB504;
-integer COMMAND_SAFEWORD        = 0xCDB510;
-
-integer POPUP_HELP              = -0xCDB001;      
-
-integer HTTPDB_SAVE             = 0xCDB200;     // scripts send messages on this channel to have settings saved to httpdb
-                                                // str must be in form of "token=value"
-integer HTTPDB_REQUEST          = 0xCDB201;     // when startup, scripts send requests for settings on this channel
-integer HTTPDB_RESPONSE         = 0xCDB202;     // the httpdb script will send responses on this channel
-integer HTTPDB_DELETE           = 0xCDB203;     // delete token from DB
-integer HTTPDB_EMPTY            = 0xCDB204;     // sent by httpdb script when a token has no value in the db
-
-integer LOCALSETTING_SAVE       = 0xCDB250;
-integer LOCALSETTING_REQUEST    = 0xCDB251;
-integer LOCALSETTING_RESPONSE   = 0xCDB252;
-integer LOCALSETTING_DELETE     = 0xCDB253;
-integer LOCALSETTING_EMPTY      = 0xCDB254;
-
-integer MENUNAME_REQUEST        = 0xCDB300;
-integer MENUNAME_RESPONSE       = 0xCDB301;
-integer SUBMENU        = 0xCDB302;
-integer MENUNAME_REMOVE         = 0xCDB303;
-
-integer RLV_CMD                 = 0xCDB600;
-
-integer DIALOG                  = -0xCDB900;
-integer DIALOG_RESPONSE         = -0xCDB901;
-integer DIALOG_TIMEOUT          = -0xCDB902;
-
-
+$import lib.MessageMap.lslm ();
+$import lib.CommonVariables.lslm ();
+$import lib.CommonFunctions.lslm ();
 
 /*---------------//
 //  FUNCTIONS    //
 //---------------*/
-Debug (string sStr)
-{
-    if (g_iDebug){
-        llOwnerSay(llGetScriptName() + ": " + sStr);
-    }
-}
-
-Notify(key kID, string sMsg, integer iAlsoNotifyWearer) 
-{
-    if (kID == g_kWearer) 
-    {
-        llOwnerSay(sMsg);
-    } 
-    else 
-    {
-        llInstantMessage(kID,sMsg);
-        if (iAlsoNotifyWearer) 
-        {
-            llOwnerSay(sMsg);
-        }
-    }
-}
 
 // RLV-Force avatar to face the leasher by Tapple Gao
 turnToTarget(vector target)
@@ -191,14 +124,6 @@ turnToTarget(vector target)
         //if (turnAngle >  MAX_TURN_ANGLE) turnAngle =  MAX_TURN_ANGLE;
         llMessageLinked(LINK_SET, RLV_CMD, "setrot:" + (string)(turnAngle) + "=force", NULL_KEY);
     }
-}
-
-key Dialog(key kRCPT, string sPrompt, list lChoices, list lUtilityButtons, integer iPage)
-{
-    //debug("dialog:"+(string)llGetFreeMemory( ));
-    key kID = llGenerateKey();
-    llMessageLinked(LINK_SET, DIALOG, (string)kRCPT + "|" + sPrompt + "|" + (string)iPage + "|" + llDumpList2String(lChoices, "`") + "|" + llDumpList2String(lUtilityButtons, "`"), kID);
-    return kID;
 }
 
 integer CheckCommandAuth(key kCmdGiver, integer iAuth)
@@ -459,7 +384,7 @@ LeashTo(key kTarget, key kCmdGiver, integer iRank, list lPoints)
             g_bLeashedToAvi = TRUE;
         }
     }
-    llMessageLinked(LINK_SET, LOCALSETTING_SAVE, TOK_DEST + "=" + (string)kTarget + "," + (string)iRank + "," + (string)g_bLeashedToAvi + "," + (string)g_bFollowMode, NULL_KEY);
+    llMessageLinked(LINK_SET, SETTING_SAVE, TOK_DEST + "=" + (string)kTarget + "," + (string)iRank + "," + (string)g_bLeashedToAvi + "," + (string)g_bFollowMode, NULL_KEY);
     DoLeash(kTarget, iRank, lPoints);
     
     // Notify Target how to unleash, only if:
@@ -558,27 +483,13 @@ Unleash(key kCmdGiver)
     llMessageLinked(LINK_THIS, COMMAND_PARTICLE, "unleash", g_kLeashedTo);
     g_kLeashedTo = NULL_KEY;
     g_iLastRank = COMMAND_EVERYONE;
-    llMessageLinked(LINK_SET, LOCALSETTING_DELETE, TOK_DEST, "");
+    llMessageLinked(LINK_SET, SETTING_DELETE, TOK_DEST, "");
 }
 
-integer KeyIsAv(key id)
-{
-    return llGetAgentSize(id) != ZERO_VECTOR;
-}
 // Returns sName's first name
 string GetFirstName(string sName)
 {
     return llGetSubString(sName, 0, llSubStringIndex(sName, " ") - 1);
-}
-
-integer startswith(string haystack, string needle) // http://wiki.secondlife.com/wiki/llSubStringIndex
-{
-    return llDeleteSubString(haystack, llStringLength(needle), -1) == needle;
-}
-
-integer endswith(string haystack, string needle) // http://wiki.secondlife.com/wiki/llSubStringIndex
-{
-    return llDeleteSubString(haystack, 0, ~llStringLength(needle)) == needle;
 }
 
 LeashToHelp(key kIn)
@@ -601,15 +512,15 @@ YankTo(key kIn)
 /*---------------//
 //  HANDLERS     //
 //---------------*/
-
+// pragma inline
 HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
 {
 
 }
-
+// pragma inline
 HandleLOCALSETTING(integer iSender, integer iNum, string sStr, key kID)
 {
-    if (iNum == LOCALSETTING_RESPONSE)
+    if (iNum == SETTING_RESPONSE)
     {
         integer iInd = llSubStringIndex(sStr, "=");
         string sTOK = llGetSubString(sStr, 0, iInd -1);
@@ -638,7 +549,7 @@ HandleLOCALSETTING(integer iSender, integer iNum, string sStr, key kID)
         }
     }
 }
-
+// pragma inline
 HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
 {
     if (iNum == DIALOG_RESPONSE)
@@ -658,7 +569,7 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
                 }
                 else
                 {
-                    llMessageLinked(LINK_SET, SUBMENU, g_sParentMenu, kAV);
+                    llMessageLinked(LINK_SET, MENU_SUBMENU, g_sParentMenu, kAV);
                     return;
                 }
             }                
@@ -719,10 +630,10 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
         }
     }
 }
-
+// pragma inline
 HandleMENU(integer iSender, integer iNum, string sStr, key kID)
 {
-    if (iNum == SUBMENU)
+    if (iNum == MENU_SUBMENU)
     {
         if (sStr == g_sSubMenu)
         {
@@ -730,14 +641,14 @@ HandleMENU(integer iSender, integer iNum, string sStr, key kID)
         }
         else if (sStr == UPMENU)
         {
-            llMessageLinked(LINK_SET, MENUNAME_RESPONSE, g_sParentMenu + "|" + g_sSubMenu, NULL_KEY);
+            llMessageLinked(LINK_SET, MENU_RESPONSE, g_sParentMenu + "|" + g_sSubMenu, NULL_KEY);
         }
     }
-    else if (iNum == MENUNAME_REQUEST && sStr == g_sParentMenu)
+    else if (iNum == MENU_REQUEST && sStr == g_sParentMenu)
     {
-        llMessageLinked(LINK_SET, MENUNAME_RESPONSE, g_sParentMenu + "|" + g_sSubMenu, NULL_KEY);
+        llMessageLinked(LINK_SET, MENU_RESPONSE, g_sParentMenu + "|" + g_sSubMenu, NULL_KEY);
     }
-    else if (iNum == MENUNAME_RESPONSE)
+    else if (iNum == MENU_RESPONSE)
     {
         list lParts = llParseString2List(sStr, ["|"], []);
         if (llList2String(lParts, 0) == g_sSubMenu)
@@ -750,7 +661,7 @@ HandleMENU(integer iSender, integer iNum, string sStr, key kID)
         }
     }    
 }
-
+// pragma inline
 HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
 {
     list lParam = [];
@@ -839,7 +750,7 @@ HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
             if (g_kWearer == kID)
             {
                 g_iRot = FALSE;
-                llMessageLinked(LINK_SET, LOCALSETTING_SAVE, TOK_ROT + "=0", "");
+                llMessageLinked(LINK_SET, SETTING_SAVE, TOK_ROT + "=0", "");
             }
             else
             {
@@ -851,7 +762,7 @@ HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
             if (g_kWearer == kID)
             {
                 g_iRot = TRUE;
-                llMessageLinked(LINK_SET, LOCALSETTING_DELETE, TOK_ROT, "");
+                llMessageLinked(LINK_SET, SETTING_DELETE, TOK_ROT, "");
             }
             else
             {
@@ -920,7 +831,7 @@ HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
                     SetLength(fNewLength);
                     //tell wearer  
                     Notify(kID, "Leash length set to " + (string)fNewLength, TRUE);        
-                    llMessageLinked(LINK_SET, LOCALSETTING_SAVE, TOK_LENGTH + "=" + (string)fNewLength, "");
+                    llMessageLinked(LINK_SET, SETTING_SAVE, TOK_LENGTH + "=" + (string)fNewLength, "");
                 }
             }
             else Notify(kID, "The current leash length is " + (string)g_fLength + "m.", TRUE);
@@ -989,6 +900,7 @@ default
 {
     state_entry()
     {
+    	g_lButtons = [L_LENGTH, LEASH_TO, FOLLOW_MENU, GIVE_HOLDER, L_POST, REZ_POST, GIVE_POST];
         //debug("statentry:"+(string)llGetFreeMemory( ));
         g_kWearer = llGetOwner();
         g_sWearer = llKey2Name(g_kWearer);
@@ -1005,19 +917,19 @@ default
     
     link_message(integer iSender, integer iNum, string sStr, key kID)
     {
-        if ((iNum >= HTTPDB_SAVE) && (iNum <= HTTPDB_EMPTY))
+        if ((iNum >= SETTING_SAVE) && (iNum <= SETTING_EMPTY))
         {
             HandleHTTPDB(iSender,iNum,sStr,kID);
         }
-        else if ((iNum >= LOCALSETTING_SAVE) && (iNum <= LOCALSETTING_EMPTY))
+        else if ((iNum >= SETTING_SAVE) && (iNum <= SETTING_EMPTY))
         {
             HandleLOCALSETTING(iSender,iNum,sStr,kID);
         }
-        else if ((iNum >= MENUNAME_REQUEST) && (iNum <= MENUNAME_REMOVE))
+        else if ((iNum >= MENU_REQUEST) && (iNum <= MENU_REMOVE))
         {
             HandleMENU(iSender,iNum,sStr,kID); 
         }
-        else if ((iNum >= DIALOG_TIMEOUT) && (iNum <= DIALOG))
+        else if ((iNum >= DIALOG_TIMEOUT) && (iNum <= DIALOG_REQUEST))
         {
             HandleDIALOG(iSender,iNum,sStr,kID);
         }        

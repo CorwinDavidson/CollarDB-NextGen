@@ -3,9 +3,24 @@ $module ()
 $import lib.CommonVariables.lslm ();
 $import lib.stringFunctions.lslm ();
 
+//dummy function
+integer llScaleByFactor(float resize_scale)
+{
+	if (resize_scale >= 1.0)
+	{
+		return TRUE;
+	}
+	else
+	{
+		return FALSE;
+	}
+}
+
+
 //#mdebug info
 Debug (string sStr)
 {
+
 		llOwnerSay(llGetScriptName() + ": " + sStr);
 }
 //#enddebug

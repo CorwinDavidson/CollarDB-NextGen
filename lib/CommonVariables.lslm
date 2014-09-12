@@ -8,3 +8,5 @@ list g_lCacheTemplate = [];
 list g_lButtons = [];
 
 string UPMENU = "^";
+
+integer g_iDebug;

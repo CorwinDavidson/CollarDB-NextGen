@@ -12,9 +12,6 @@
 /*-------------//
 //  VARIABLES  //
 //-------------*/
-integer g_iDebug = FALSE;
-
-key g_kWearer;
 list g_lOwners;
 
 string g_sParentMenu = "Main";
@@ -35,73 +32,13 @@ list g_lOpenLockElements;                //to store the locks prim to hide or sh
 //added to prevent altime attach messages
 integer g_bDetached = FALSE;
 
-
-/*---------------//
-//  MESSAGE MAP  //
-//---------------*/
-integer COMMAND_NOAUTH          = 0xCDB000;
-integer COMMAND_OWNER           = 0xCDB500;
-integer COMMAND_SECOWNER        = 0xCDB501;
-integer COMMAND_GROUP           = 0xCDB502;
-integer COMMAND_WEARER          = 0xCDB503;
-integer COMMAND_EVERYONE        = 0xCDB504;
-integer COMMAND_OBJECT          = 0xCDB506;
-integer COMMAND_RLV_RELAY       = 0xCDB507;
-integer COMMAND_SAFEWORD        = 0xCDB510;
-integer COMMAND_WEARERLOCKEDOUT = 0xCDB521;
-
-integer POPUP_HELP              = -0xCDB001;      
-
-integer HTTPDB_SAVE             = 0xCDB200;     // scripts send messages on this channel to have settings saved to httpdb
-                                                // str must be in form of "token=value"
-integer HTTPDB_REQUEST          = 0xCDB201;     // when startup, scripts send requests for settings on this channel
-integer HTTPDB_RESPONSE         = 0xCDB202;     // the httpdb script will send responses on this channel
-integer HTTPDB_DELETE           = 0xCDB203;     // delete token from DB
-integer HTTPDB_EMPTY            = 0xCDB204;     // sent by httpdb script when a token has no value in the db
-integer HTTPDB_REQUEST_NOCACHE  = 0xCDB205;
-
-integer LOCALSETTING_SAVE       = 0xCDB250;
-integer LOCALSETTING_REQUEST    = 0xCDB251;
-integer LOCALSETTING_RESPONSE   = 0xCDB252;
-integer LOCALSETTING_DELETE     = 0xCDB253;
-integer LOCALSETTING_EMPTY      = 0xCDB254;
-
-integer MENUNAME_REQUEST        = 0xCDB300;
-integer MENUNAME_RESPONSE       = 0xCDB301;
-integer SUBMENU                 = 0xCDB302;
-integer MENUNAME_REMOVE         = 0xCDB303;
-
-integer RLV_CMD                 = 0xCDB600;
-integer RLV_REFRESH             = 0xCDB601;     // RLV plugins should reinstate their restrictions upon receiving this message.
-integer RLV_CLEAR               = 0xCDB602;     // RLV plugins should clear their restriction lists upon receiving this message.
-integer RLVR_CMD                = 0xCDB612;
+$import lib.MessageMap.lslm ();
+$import lib.CommonVariables.lslm ();
+$import lib.CommonFunctions.lslm ();
 
 /*---------------//
 //  FUNCTIONS    //
 //---------------*/
-Debug (string sStr)
-{
-    if (g_iDebug){
-        llOwnerSay(llGetScriptName() + ": " + sStr);
-    }
-}
-
-Notify(key kID, string sMsg, integer iAlsoNotifyWearer) 
-{
-    if (kID == g_kWearer) 
-    {
-        llOwnerSay(sMsg);
-    } 
-    else 
-    {
-        llInstantMessage(kID,sMsg);
-        if (iAlsoNotifyWearer) 
-        {
-            llOwnerSay(sMsg);
-        }
-    }
-}
-
 
 NotifyOwners(string sMsg)
 {
@@ -198,41 +135,41 @@ Lock()
 {
 
     g_iLocked = TRUE;
-    llMessageLinked(LINK_SET, HTTPDB_SAVE, "locked=1", NULL_KEY);
+    llMessageLinked(LINK_SET, SETTING_SAVE, "locked=1", NULL_KEY);
     llMessageLinked(LINK_SET, RLV_CMD, "detach=n", NULL_KEY);
-    llMessageLinked(LINK_SET, MENUNAME_RESPONSE, g_sParentMenu + "|" + llList2String(g_lLOCKSTATE,g_iLocked), NULL_KEY);    
+    llMessageLinked(LINK_SET, MENU_RESPONSE, g_sParentMenu + "|" + llList2String(g_lLOCKSTATE,g_iLocked), NULL_KEY);    
     llPlaySound("abdb1eaa-6160-b056-96d8-94f548a14dda", 1.0);
-    llMessageLinked(LINK_SET, MENUNAME_REMOVE, g_sParentMenu + "|" + llList2String(g_lLOCKSTATE,(~g_iLocked)), NULL_KEY);
+    llMessageLinked(LINK_SET, MENU_REMOVE, g_sParentMenu + "|" + llList2String(g_lLOCKSTATE,(~g_iLocked)), NULL_KEY);
     SetLockElementAlpha();
 }
 
 Unlock()
 {
     g_iLocked = FALSE;
-    llMessageLinked(LINK_SET, HTTPDB_DELETE, "locked", NULL_KEY);
+    llMessageLinked(LINK_SET, SETTING_DELETE, "locked", NULL_KEY);
     llMessageLinked(LINK_SET, RLV_CMD, "detach=y", NULL_KEY);
-    llMessageLinked(LINK_SET, MENUNAME_RESPONSE, g_sParentMenu + "|" + llList2String(g_lLOCKSTATE,g_iLocked), NULL_KEY);
+    llMessageLinked(LINK_SET, MENU_RESPONSE, g_sParentMenu + "|" + llList2String(g_lLOCKSTATE,g_iLocked), NULL_KEY);
     llPlaySound("ee94315e-f69b-c753-629c-97bd865b7094", 1.0);
-    llMessageLinked(LINK_SET, MENUNAME_REMOVE, g_sParentMenu + "|" + llList2String(g_lLOCKSTATE,(~g_iLocked)), NULL_KEY);
+    llMessageLinked(LINK_SET, MENU_REMOVE, g_sParentMenu + "|" + llList2String(g_lLOCKSTATE,(~g_iLocked)), NULL_KEY);
     SetLockElementAlpha(); 
 }
 
 /*---------------//
 //  HANDLERS     //
 //---------------*/
-
+// pragma inline
 HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
 {
-        if ((iNum == HTTPDB_RESPONSE) || (iNum == HTTPDB_SAVE))
+        if ((iNum == SETTING_RESPONSE) || (iNum == SETTING_SAVE))
         {
             list lParams = llParseString2List(sStr, ["="], []);
             string sToken = llList2String(lParams, 0);
             string sValue = llList2String(lParams, 1);
-            if ((sToken == "locked") && (iNum == HTTPDB_RESPONSE))
+            if ((sToken == "locked") && (iNum == SETTING_RESPONSE))
             {
                 g_iLocked = (integer)sValue;
-                llMessageLinked(LINK_SET, MENUNAME_RESPONSE, g_sParentMenu + "|" + llList2String(g_lLOCKSTATE,g_iLocked), NULL_KEY);
-                llMessageLinked(LINK_SET, MENUNAME_REMOVE, g_sParentMenu + "|" + llList2String(g_lLOCKSTATE,(~g_iLocked)), NULL_KEY);
+                llMessageLinked(LINK_SET, MENU_RESPONSE, g_sParentMenu + "|" + llList2String(g_lLOCKSTATE,g_iLocked), NULL_KEY);
+                llMessageLinked(LINK_SET, MENU_REMOVE, g_sParentMenu + "|" + llList2String(g_lLOCKSTATE,(~g_iLocked)), NULL_KEY);
                 llMessageLinked(LINK_SET, RLV_CMD, "detach=" + llList2String(g_lYorN,g_iLocked), NULL_KEY);
                 SetLockElementAlpha(); 
 
@@ -245,10 +182,10 @@ HandleHTTPDB(integer iSender, integer iNum, string sStr, key kID)
 
 }
 
-
+// pragma inline
 HandleMENU(integer iSender, integer iNum, string sStr, key kID)
 {
-    if (iNum == SUBMENU)
+    if (iNum == MENU_SUBMENU)
     {
         if (sStr == LOCK)
         {
@@ -261,13 +198,13 @@ HandleMENU(integer iSender, integer iNum, string sStr, key kID)
             llMessageLinked(LINK_SET, COMMAND_NOAUTH, "unlock", kID);
         }
     }
-    else if (iNum == MENUNAME_REQUEST && sStr == g_sParentMenu)
+    else if (iNum == MENU_REQUEST && sStr == g_sParentMenu)
     {
-        llMessageLinked(LINK_SET, MENUNAME_RESPONSE, g_sParentMenu + "|" + llList2String(g_lLOCKSTATE,g_iLocked), NULL_KEY);
-        llMessageLinked(LINK_SET, MENUNAME_REMOVE, g_sParentMenu + "|" + llList2String(g_lLOCKSTATE,(~g_iLocked)), NULL_KEY);
+        llMessageLinked(LINK_SET, MENU_RESPONSE, g_sParentMenu + "|" + llList2String(g_lLOCKSTATE,g_iLocked), NULL_KEY);
+        llMessageLinked(LINK_SET, MENU_REMOVE, g_sParentMenu + "|" + llList2String(g_lLOCKSTATE,(~g_iLocked)), NULL_KEY);
     }
 }
-
+// pragma inline
 HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
 {
         if ((iNum >= COMMAND_OWNER) && (iNum <= COMMAND_WEARER))
@@ -321,7 +258,7 @@ HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
             }
         }
  }
-
+// pragma inline
 HandleRLV(integer iSender, integer iNum, string sStr, key kID)
 {
     if ((iNum == RLV_REFRESH) || (iNum == RLV_CLEAR))
@@ -335,7 +272,7 @@ remenu(key kID)
     if (g_iRemenu) 
     {
         g_iRemenu=FALSE; 
-        llMessageLinked(LINK_SET, SUBMENU, g_sParentMenu, kID);
+        llMessageLinked(LINK_SET, MENU_SUBMENU, g_sParentMenu, kID);
     }
 }
 
@@ -353,11 +290,11 @@ default
 
     link_message(integer iSender, integer iNum, string sStr, key kID)
     {
-            if ((iNum >= HTTPDB_SAVE) && (iNum <= HTTPDB_REQUEST_NOCACHE))
+            if ((iNum >= SETTING_SAVE) && (iNum <= SETTING_REQUEST_NOCACHE))
             {
                 HandleHTTPDB(iSender,iNum,sStr,kID);
             }
-            else if ((iNum >= MENUNAME_REQUEST) && (iNum <= MENUNAME_REMOVE))
+            else if ((iNum >= MENU_REQUEST) && (iNum <= MENU_REMOVE))
             {
                 HandleMENU(iSender,iNum,sStr,kID); 
             }

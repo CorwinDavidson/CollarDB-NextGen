@@ -72,6 +72,7 @@ integer APPEARANCE_TEXTURE      = -0xCDB802;
 integer APPEARANCE_POSITION     = -0xCDB803;
 integer APPEARANCE_ROTATION     = -0xCDB804;
 integer APPEARANCE_SIZE         = -0xCDB805;
+integer APPEARANCE_ALPHA_SETTINGS = -0xCDB810;
 integer APPEARANCE_SIZE_FACTOR  = -0xCDB815;
 
 integer TIMER_EVENT             = -0xCDB100;    // str = "start" or "end". For start, either "online" or "realtime".
@@ -85,3 +86,6 @@ integer POPUP_HELP              = -0xCDB001;
 
 integer TIMER_TOMESSAGE         = -0xCDB109;      
 integer TIMER_FROMMESSAGE       = -0xCDB110; 
+
+integer COMMAND_PARTICLE = 20000;
+integer COMMAND_LEASH_SENSOR = 20001;
