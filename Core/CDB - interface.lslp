@@ -42,13 +42,10 @@ string BLANK = " ";
 integer g_iTimeOut = 300;
 integer g_iReapeat = 5;  //how often the timer will go off, in seconds
 
-list g_lDialogs;  //6-strided list in form listenChan, dialogid, listener, starttime, recipient, prompt, list buttons, utility buttons, currentpage, button digits
-//where "list buttons" means the big list of choices presented to the user
-//and "page buttons" means utility buttons that will appear on every page, such as one saying "go up one level"
-//and "currentpage" is an integer meaning which page of the menu the user is currently viewing
+list g_lDialogs;  //5-strided list in form listenChan, dialogid, listener, starttime, Dialog JSON
+integer g_iStrideLength = 5;
 
 list g_lRemoteMenus;
-integer g_iStrideLength = 6;
 
 
 $import lib.MessageMap.lslm ();
@@ -64,6 +61,7 @@ Menu(string sName, key kID)
     if( CacheValExists(g_lMenuCache,sName))
     {
         list lItems = llParseString2List(GetCacheVal(g_lMenuCache,sName,1),["|"],[]);
+
         string sPrompt = GetCacheVal(g_lMenuCache,sName,2);
         list lUtility = [];
         if (sName != "Main")
@@ -121,7 +119,7 @@ HandleMenuResponse(string entry)
         {
             lGuts += [g_sSubMenu];
             lGuts = llListSort(lGuts, 1, TRUE);
-            SetCacheVal(g_lMenuCache,sName,llDumpList2String(lGuts, "|"),1);
+            g_lMenuCache = SetCacheVal(g_lMenuCache,sName,llDumpList2String(lGuts, "|"),1);
         }
     }    
 }
@@ -329,7 +327,7 @@ list RemoveMenuStride(list lMenu, integer iIndex)
 CleanList()
 {
 //#mdebug info	
-//@    Debug("cleaning list");
+    Debug("cleaning list: " + (string)llGetListLength(g_lDialogs));
 //#enddebug    
     //loop through menus and remove any whose timeouts are in the past
     //start at end of list and loop down so that indices don't get messed up as we remove items
@@ -339,11 +337,13 @@ CleanList()
     for (n = iLength - g_iStrideLength; n >= 0; n -= g_iStrideLength)
     {
         integer iDieTime = llList2Integer(g_lDialogs, n + 3);
-        //Debug("dietime: " + (string)iDieTime);
+//#mdebug info
+        Debug("currenttime: " + (string)iNow + "  dietime: " + (string)iDieTime);         
+//#enddebug   
         if (iNow > iDieTime)
         {
 //#mdebug info	        	
-//@            Debug("menu timeout");
+            Debug("menu timeout");
 //#enddebug                            
             key kID = llList2Key(g_lDialogs, n + 1);
             llMessageLinked(LINK_SET, DIALOG_TIMEOUT, "", kID);
@@ -355,18 +355,21 @@ CleanList()
 ClearUser(key kRCPT)
 {
     //find any strides belonging to user and remove them
-    integer iIndex = llListFindList(g_lDialogs, [kRCPT]);
-    while (~iIndex)
+    integer iLength = llGetListLength(g_lDialogs);
+    integer n;
+    for (n = iLength - g_iStrideLength; n >= 0; n -= g_iStrideLength)
     {
+    	key kAv = (key)llJsonGetValue ( llList2String(g_lDialogs, n + 4), [ "DIALOG", 0 ] ); 
+    	if (kAv == kRCPT )
+    	{
 //#mdebug info	    	
-//@        Debug("removed stride for " + (string)kRCPT);
+			Debug("removed stride for " + (string)kRCPT);
 //#enddebug        
-          g_lDialogs = RemoveMenuStride(g_lDialogs, iIndex -4);
-        //g_lDialogs = llDeleteSubList(g_lDialogs, iIndex - 4, iIndex - 5 + g_iStrideLength);
-        iIndex = llListFindList(g_lDialogs, [kRCPT]);
+			g_lDialogs = RemoveMenuStride(g_lDialogs, n);    		
+    	}
     }
 //#mdebug info	    
-//@    Debug(llDumpList2String(g_lDialogs, ","));
+    Debug(llDumpList2String(g_lDialogs, ","));
 //#enddebug	    
 }
 
@@ -389,7 +392,10 @@ default
 
     touch_start(integer iNum)
     {
-        llMessageLinked(LINK_SET, COMMAND_NOAUTH, "menu", llDetectedKey(0));
+    	if (CheckAuth(llDetectedKey(0),COMMAND_WEARER,COMMAND_OWNER,FALSE))
+    	{
+    		Menu("Main", llDetectedKey(0));
+    	}
     }
     
     link_message(integer iSender, integer iNum, string sStr, key kID)
@@ -432,10 +438,11 @@ default
         else if ((iNum >= DIALOG_REQUEST) && (iNum <= DIALOG_TIMEOUT))
         {
 //#mdebug info	        	
-//@            Debug("DIALOG REQUEST: " + sStr);
+            Debug("DIALOG: " + sStr);
 //#enddebug	            
             if (iNum == DIALOG_REQUEST)
             {
+            	Debug("DIALOG REQUEST: " + sStr);
                 key kRCPT = llJsonGetValue ( sStr, [ "DIALOG", 0 ] );
                 integer iIndex = llListFindList(g_lRemoteMenus, [kRCPT]);
                 if (~iIndex)
@@ -466,10 +473,11 @@ default
                 {
                     //got a menu response meant for us.  pull out values
                     list lMenuParams = llParseString2List(sStr, ["|"], []);
-                    key kAv = (key)llList2String(lMenuParams, 0);          
+                    string sJSON = llList2String(lMenuParams, 0);
+                    key kAv = llList2Key(lMenuParams, 0);         
                     string sMessage = llList2String(lMenuParams, 1);                                         
                     integer iPage = (integer)llList2String(lMenuParams, 2);
-                    
+                   
                     //remove stride from g_lMenuIDs
                     //we have to subtract from the index because the dialog id comes in the middle of the stride
                     g_lMenuIDs = llDeleteSubList(g_lMenuIDs, iMenuIndex - 1, iMenuIndex - 2 + g_iMenuStride);                
@@ -481,18 +489,29 @@ default
                     }
                     else
                     {
+                    	integer iHasAuth = CheckAuth(llDetectedKey(0),COMMAND_WEARER,COMMAND_OWNER,FALSE);
                         if (sMessage == GIVECARD)
                         {
-                            llMessageLinked(LINK_SET, COMMAND_NOAUTH, "help", kAv);
+							if (iHasAuth)
+							{                        	
+                            	llGiveInventory(kID, HELPCARD);  
+							}
                             Menu("Help/Debug", kAv);
                         }
                         else if (sMessage == REFRESH_MENU)
                         {//send a command telling other plugins to rebuild their menus
-                            llMessageLinked(LINK_SET, COMMAND_NOAUTH, "refreshmenu", kAv);
+							if (iHasAuth)
+							{                           	
+	                        	llDialog(kID, "Rebuilding menu.  This may take several seconds.", [], -341321);
+				                llResetScript();
+							}
                         }
                         else if (sMessage == RESET_MENU)
                         {//send a command to reset scripts
-                            llMessageLinked(LINK_SET, COMMAND_NOAUTH, "resetscripts", kAv);
+							if (iHasAuth)
+							{
+                            	llMessageLinked(LINK_SET, iHasAuth, "resetscripts", kAv);								
+							}                        	
                         }
                         else
                         {
@@ -512,7 +531,7 @@ default
         else if ((iNum >= COMMAND_WEARER) && (iNum <= COMMAND_OWNER))
         {
 //#mdebug info	        	
-//@            Debug(sStr);
+            Debug(sStr);
 //#enddebug	            
             list lParams = llParseString2List(sStr, [" "], []);
             string sCmd = llList2String(lParams, 0);
@@ -554,7 +573,7 @@ default
             {
                 string sCmd = llGetSubString(sStr, 11, -1);
 //#mdebug info	                
-//@                Debug("dialog cmd:" + sCmd);
+                Debug("dialog cmd:" + sCmd);
 //#enddebug	                
                 if (llGetSubString(sCmd, 0, 3) == "url:")
                 {
@@ -597,13 +616,13 @@ default
         if (~iMenuIndex)
         {
             key kMenuID = llList2Key(g_lDialogs, iMenuIndex + 1);
-            key kAv = llList2Key(g_lDialogs, iMenuIndex + 4);
-            string sDialogJSON = llList2String(g_lDialogs, iMenuIndex + 5); 
+            string sDialogJSON = llList2String(g_lDialogs, iMenuIndex + 4);
             
-            string sPrompt = llJsonGetValue ( sDialogJSON, [ "DIALOG", 1 ] );
-            integer iPage = (integer)llJsonGetValue ( sDialogJSON, [ "DIALOG", 2 ] ); 
-            list items = llParseString2List(llJsonGetValue ( sDialogJSON, [ "DIALOG", 3 ] ), ["`"], []);
-            list uButtons = llParseString2List(llJsonGetValue ( sDialogJSON, [ "DIALOG", 4 ] ), ["`"], []); 
+			key kAv = (key)llJsonGetValue(sDialogJSON,["DIALOG", 0]);   		
+            string sPrompt = llJsonGetValue(sDialogJSON,["DIALOG",1]);
+            integer iPage = (integer)llJsonGetValue(sDialogJSON,["DIALOG", 2 ]); 
+            list items = llParseString2List(llJsonGetValue(sDialogJSON,["DIALOG",3]),["`"],[]);
+            list uButtons = llParseString2List(llJsonGetValue(sDialogJSON,["DIALOG",4]),["`"],[]); 
     
             integer iDigits = ButtonDigits(items);
             
@@ -644,7 +663,11 @@ default
                     integer iBIndex = (integer) llGetSubString(sMessage, 0, iDigits);
                     sAnswer = llList2String(items, iBIndex);
                 }
-                else sAnswer = sMessage;
+                else 
+                {
+                	sAnswer = sMessage;
+                }
+                Debug("ANSWER: " + (string)kAv + "|" + sAnswer + "|" + (string)iPage + "|" + (string)kMenuID );
                 llMessageLinked(LINK_SET, DIALOG_RESPONSE, (string)kAv + "|" + sAnswer + "|" + (string)iPage, kMenuID);
                 return;
             }  
@@ -677,7 +700,7 @@ default
         if (!llGetListLength(g_lDialogs))
         {
 //#mdebug info	        	
-//@            Debug("no active dialogs, stopping timer");
+            Debug("no active dialogs, stopping timer");
 //#enddebug	            
             llSetTimerEvent(0.0);
         }

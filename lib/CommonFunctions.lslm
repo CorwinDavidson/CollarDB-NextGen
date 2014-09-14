@@ -33,7 +33,7 @@ string String2Json(string s)
 key Dialog(key kRCPT, string sPrompt, list lChoices, list lUtilityButtons, integer iPage)
 {
     key kID = llGenerateKey();
-    llMessageLinked(LINK_SET, DIALOG_REQUEST,"{\"DIALOG\":" + String2Json(kRCPT) + "," + String2Json(sPrompt) + "," + (string)iPage + "," +  String2Json( llDumpList2String(lChoices, "`")) + "," + String2Json(llDumpList2String(lUtilityButtons, "`")) + "}",kID);
+    llMessageLinked(LINK_SET, DIALOG_REQUEST,"{\"DIALOG\":[" + String2Json(kRCPT) + "," + String2Json(sPrompt) + "," + (string)iPage + "," +  String2Json( llDumpList2String(lChoices, "`")) + "," + String2Json(llDumpList2String(lUtilityButtons, "`")) + "]}",kID);
     return kID;
 }
 
@@ -66,6 +66,24 @@ Notify(key kID, string sMsg, integer iAlsoNotifyWearer)
     }
 }
 
+
+NotifyOwners(string sMsg, list lOwners)
+{
+    integer n;
+    integer iStop = llGetListLength(lOwners);
+    for (n = 0; n < iStop; n += 2)
+    {
+        if (g_kWearer != llGetOwner())
+        {
+ //           llResetScript();
+            return;
+        }
+        else
+            Notify((key)llList2String(lOwners, n), sMsg, FALSE);
+    }
+}
+
+
 string AutoPrefix()
 {
     list sName = llParseString2List(llKey2Name(llGetOwner()), [" "], []);
@@ -81,6 +99,7 @@ integer GetOwnerChannel(key kID, integer iAppID)
 {
     return 0x80000000 | ((integer)("0x"+(string)kID) ^ iAppID);
 }
+
 
 /*-------------------**
 ** Cache Functions   **
@@ -126,4 +145,133 @@ list DelCacheVal(list cache, string sToken, integer iValCnt)
         cache = llDeleteSubList(cache, iIndex, iIndex + iValCnt);
     }
     return cache;
+}
+
+// AUTH Functions
+setAuthList(integer iList, list lAuthList)
+{
+    integer iMax = llGetListLength(lAuthList);
+    integer iHalf = 0;
+    
+    if (iMax > 2)
+    {
+         iHalf = iMax / 2;
+         llSetLinkMedia(LINK_THIS,iList,[PRIM_MEDIA_HOME_URL,llDumpList2String(llList2List(lAuthList,0,iHalf-1),"|"),PRIM_MEDIA_PERMS_CONTROL,PRIM_MEDIA_PERM_NONE,PRIM_MEDIA_PERMS_INTERACT,PRIM_MEDIA_PERM_NONE]);
+         llSetLinkMedia(LINK_THIS,iList,[PRIM_MEDIA_WHITELIST,llDumpList2String(llList2List(lAuthList,iHalf,iMax),"|"),PRIM_MEDIA_PERMS_CONTROL,PRIM_MEDIA_PERM_NONE,PRIM_MEDIA_PERMS_INTERACT,PRIM_MEDIA_PERM_NONE]);
+    }
+    else
+    {
+        llSetLinkMedia(LINK_THIS,iList,[PRIM_MEDIA_HOME_URL,llDumpList2String(lAuthList,"|"),PRIM_MEDIA_PERMS_CONTROL,PRIM_MEDIA_PERM_NONE,PRIM_MEDIA_PERMS_INTERACT,PRIM_MEDIA_PERM_NONE]);
+        llSetLinkMedia(LINK_THIS,iList,[PRIM_MEDIA_WHITELIST,"",PRIM_MEDIA_PERMS_CONTROL,PRIM_MEDIA_PERM_NONE,PRIM_MEDIA_PERMS_INTERACT,PRIM_MEDIA_PERM_NONE]);
+    }
+}
+
+list getAuthList(integer iList, integer lowercase)
+{
+    return llParseString2List((string)llGetLinkMedia(LINK_THIS,iList,[PRIM_MEDIA_HOME_URL]) + "|" + (string)llGetLinkMedia(LINK_THIS,iList,[PRIM_MEDIA_WHITELIST]),["|"],[]);
+}
+
+integer CheckAuth(string kID, integer iMinAuth, integer iMaxAuth, integer iObject)
+{
+	integer iUserAuth = UserAuth(kID, iObject);
+	if ( ( iUserAuth >= iMinAuth ) &&  ( iUserAuth <= iMaxAuth ))
+	{
+		return iUserAuth;
+	}
+	else
+	{
+		return FALSE;
+	}
+}
+
+integer UserAuth(string kID, integer iObject)
+{
+	key kObject = NULL_KEY;
+    // If this is an Object, use the Owner key for Auth
+    if (iObject)
+    {
+        kObject = kID;
+        kID = (string)llGetOwnerKey(kObject);
+    }
+	integer iWearerLocksOut = (integer)((string)llGetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_LOOP]));
+	integer iOpenAccess = (integer)((string)llGetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_SCALE]));
+	integer iGroupEnabled = (integer)((string)llGetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_ZOOM]));
+	key kGroup = (string)llGetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_WHITELIST]);
+	
+    integer iNum;
+    
+    if (iWearerLocksOut && kID == (string)g_kWearer)
+    {
+        iNum = COMMAND_WEARERLOCKEDOUT;
+    }
+    else if (~llListFindList(getAuthList(OWNERLIST,FALSE), [(string)kID]))
+    {
+        iNum = COMMAND_OWNER;
+    }
+    else if (llGetListLength(getAuthList(OWNERLIST,FALSE)) == 0 && kID == (string)g_kWearer)
+    {
+        //if no owners set, then wearer's cmds have owner auth
+        iNum = COMMAND_OWNER;
+    }
+    else if (~llListFindList(getAuthList(BLACKLIST,FALSE), [(string)kID]))
+    {
+        iNum = COMMAND_BLACKLIST;
+    }
+    else if (~llListFindList(getAuthList(SECOWNERLIST,FALSE), [(string)kID]))
+    {
+        iNum = COMMAND_SECOWNER;
+    }
+    else if (kID == (string)g_kWearer)
+    {
+        iNum = COMMAND_WEARER;
+    }
+    else if (iOpenAccess)
+    {
+        if (in_range((key)kID))
+            iNum = COMMAND_GROUP;
+        else
+            iNum = COMMAND_EVERYONE;
+    }
+    else if (iGroupEnabled)
+    {
+        if (iObject)
+        {
+            if (((string)llGetObjectDetails(kObject, [OBJECT_GROUP]) == (string)kGroup) && (kID != g_kWearer))
+            {
+                iNum = COMMAND_GROUP;
+            }
+        }
+        else {
+            if (llSameGroup(kID) && iGroupEnabled && kID != (string)g_kWearer)
+            {
+                if (in_range((key)kID))
+                    iNum = COMMAND_GROUP;
+                else
+                    iNum = COMMAND_EVERYONE;
+            }        
+        }
+    }
+    else
+    {
+        iNum = COMMAND_EVERYONE;
+    }
+    return iNum;
+}
+
+integer in_range(key kID) {
+	integer iLimitRange = (integer)((string)llGetLinkMedia(LINK_THIS,1,[PRIM_MEDIA_AUTO_ZOOM]));
+    if (iLimitRange) {
+        integer range = 20;
+        vector kAvpos = llList2Vector(llGetObjectDetails(kID, [OBJECT_POS]), 0);
+        if (llVecDist(llGetPos(), kAvpos) > range) {
+            llDialog(kID, "\n\nNot in range...", [], 298479);
+            return FALSE;
+        }
+        else {
+            return TRUE;
+        }
+    }
+    else {
+        return TRUE;
+    }
 }

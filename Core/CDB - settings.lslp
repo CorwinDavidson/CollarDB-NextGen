@@ -14,6 +14,10 @@ integer g_iUseDB = FALSE; // Use the Online Database?
 integer g_iRemoteOn = FALSE;
 integer g_iOnLine = FALSE;
 
+
+integer g_iRemenu=FALSE;    // should the menu appear after the link message is handled?
+
+
 string g_sHTTPDB = "http://nextgen2.collardb.com/";  //URL to Database
 
 string g_sCard = "~defaultsettings";
@@ -36,18 +40,141 @@ string BASE_ERROR_MESSAGE = "An error has occurred. To find out more about this 
 
 string ALLTOKEN = "all";
 
+string g_sParentMenu = "Help/Debug";
+string g_sSyncFromDB = "Sync<-DB";
+//string synctodb = "Sync<-DB"; //we still lack the subsystem for requesting settings from all scripts
+string DUMPCACHE = "Dump Cache";
+string g_sOnLineButton; // will be initialized after
+
+string g_sOnLineON = "(*)Online";
+string g_sOnLineOFF = "( )Online";
+
+string WIKI ="Online Guide";
+string WIKI_URL = "http://www.collardb.com/static/UserDocumentation";
+
+list g_lKeep_on_Cleanup=["owner","secowners","openaccess","group","groupname","rlvon","locked","prefix","channel"]; 
+
 $import lib.MessageMap.lslm ();
 $import lib.CommonFunctions.lslm ();
 
 //  HTTPDB Functions
-HTTPDB_Query( string action, string sName, string sValue )
+SETTING_Query( string sAction, string sName, string sValue )
 {
-    g_lTokenIDs += [sName, llHTTPRequest( g_sHTTPDB + "db/" + sName, [HTTP_METHOD, "GET"], sValue )];
+    g_lTokenIDs += [sName, llHTTPRequest( g_sHTTPDB + "db/" + sName, [HTTP_METHOD, sAction], sValue )];
     llSleep(1.0);//sleep added to prevent hitting the sim's http throttle limit
+}
+
+ready()
+{
+    llSleep(1.0);
+
+    // send the values stored in the cache
+    SendValues();
+
+    // and store the number of scripts
+    g_iScriptCount=llGetInventoryNumber(INVENTORY_SCRIPT);
+
+    //tell the world about our menu button
+    if (g_iOnLine) 
+        g_sOnLineButton=g_sOnLineON;
+    else 
+        g_sOnLineButton=g_sOnLineOFF;
+    MenuResponse();
+
+    //resend any requests that came while we weren't looking
+    integer n;
+    integer iStop = llGetListLength(g_lRequestQueue);
+    for (n = 0; n < iStop; n = n + 3)
+    {
+        llMessageLinked(LINK_SET, (integer)llList2String(g_lRequestQueue, n), llList2String(g_lRequestQueue, n + 1), (key)llList2String(g_lRequestQueue, n + 2));
+    }
+    g_lRequestQueue = [];
+    g_iReady = TRUE;
+}
+
+DumpCache(string sWichCache)
+{
+    list lCache;
+    string sOut;
+    if (sWichCache == "local")
+    {
+        lCache=g_lSettingsCache;
+        sOut = "Local Settings Cache: \n";
+    }
+    else
+    {
+        lCache=g_lSettingsCache;
+        sOut = "DB Settings Cache: \n";
+    }
+
+
+    integer n;
+    integer iStop = llGetListLength(lCache);
+
+    for (n = 0; n < iStop; n = n + 2)
+    {
+        //handle strlength > 1024
+        string sAdd = llList2String(lCache, n) + "=" + llList2String(lCache, n + 1) + "\n";
+        if (llStringLength(sOut + sAdd) > 1024)
+        {
+            //spew and clear
+            llWhisper(0, "\n" + sOut);
+            sOut = sAdd;
+        }
+        else
+        {
+            //keep adding
+            sOut += sAdd;
+        }
+    }
+    llWhisper(0, "\n" + sOut);
+}
+
+SendValues()
+{
+    //loop through all the settings and defaults we've got
+    //settings first
+    integer n;
+    integer iStop = llGetListLength(g_lSettingsCache);
+    for (n = 0; n < iStop; n = n + 2)
+    {
+        string sToken = llList2String(g_lSettingsCache, n);
+        string sValue = llList2String(g_lSettingsCache, n + 1);
+        llMessageLinked(LINK_SET, SETTING_RESPONSE, sToken + "=" + sValue, NULL_KEY);
+    }
+
+    //now loop through g_lDefaultCache, sending only if there's not a corresponding token in g_lSettingsCache
+    iStop = llGetListLength(g_lDefaultCache);
+    for (n = 0; n < iStop; n = n + 2)
+    {
+        string sToken = llList2String(g_lDefaultCache, n);
+        string sValue = llList2String(g_lDefaultCache, n + 1);
+        if (!CacheValExists(g_lSettingsCache, sToken))
+        {
+            llMessageLinked(LINK_SET, SETTING_RESPONSE, sToken + "=" + sValue, NULL_KEY);
+        }
+    }
+
+    //and now loop through g_lSettingsCache
+    iStop = llGetListLength(g_lSettingsCache);
+    for (n = 0; n < iStop; n = n + 2)
+    {
+        string sToken = llList2String(g_lSettingsCache, n);
+        string sValue = llList2String(g_lSettingsCache, n + 1);
+        llMessageLinked(LINK_SET, SETTING_RESPONSE, sToken + "=" + sValue, NULL_KEY);
+        Debug("sent local: " + sToken + "=" + sValue);
+    }
+    llMessageLinked(LINK_SET, SETTING_RESPONSE, "settings=sent", NULL_KEY);//tells scripts everything has be sentout
 }
 
 init()
 {
+	// Prep Prim to give maximum data storage
+    if (llGetNumberOfSides() < 6)
+    {
+        llSetLinkPrimitiveParamsFast(LINK_THIS,[PRIM_TYPE,PRIM_TYPE_SPHERE,PRIM_HOLE_DEFAULT,<0,.995,0>,0.001,<0,0,0>,<0,1,0>]);
+    }
+        
 	g_lCacheTemplate =[""];
 	
     if (g_kWearer == NULL_KEY)
@@ -64,6 +191,196 @@ init()
     {
         g_iLine = 0;
         g_kDataID = llGetNotecardLine(g_sCard, g_iLine);
+    }
+}
+
+// pragma inline
+HandleMENU(integer iSender, integer iNum, string sStr, key kID)
+{
+    if (iNum == MENU_SUBMENU)
+    {
+    	integer iHasAuth = CheckAuth(llDetectedKey(0),COMMAND_WEARER,COMMAND_OWNER,FALSE);
+        if (sStr == g_sSyncFromDB)
+        {
+            //notify that we're refreshing
+            Notify(kID, "Refreshing settings from web database.", TRUE);
+            llMessageLinked(LINK_SET, MENU_SUBMENU, g_sParentMenu, kID);
+            init();
+        }
+        else if (sStr == DUMPCACHE)
+        {
+            llMessageLinked(LINK_SET, COMMAND_NOAUTH, "cachedump", kID);
+            llMessageLinked(LINK_SET, MENU_SUBMENU, g_sParentMenu, kID);
+        }
+        else if (sStr == g_sOnLineButton)
+        {
+            g_iRemenu = TRUE;
+            if (g_iOnLine)
+                llMessageLinked(LINK_SET, COMMAND_NOAUTH, "offline", kID);
+            else 
+                llMessageLinked(LINK_SET, COMMAND_NOAUTH, "online", kID);
+        }
+        else if (sStr == WIKI)
+        {
+            g_iRemenu = TRUE;
+            llMessageLinked(LINK_SET, COMMAND_NOAUTH, "wiki", kID);
+        }
+    }
+    else if (iNum == MENU_REQUEST && sStr == g_sParentMenu)
+    {
+		MenuResponse();
+    }
+}
+
+// pragma inline    
+MenuResponse()
+{
+    //            llMessageLinked(LINK_SET, MENUNAME_RESPONSE, g_sParentMenu + "|" + synctodb, NULL_KEY);
+    llMessageLinked(LINK_SET, MENU_RESPONSE, g_sParentMenu + "|" + g_sSyncFromDB, NULL_KEY);
+    llMessageLinked(LINK_SET, MENU_RESPONSE, g_sParentMenu + "|" + DUMPCACHE, NULL_KEY);
+    llMessageLinked(LINK_SET, MENU_RESPONSE, g_sParentMenu + "|" + g_sOnLineButton, NULL_KEY);
+    llMessageLinked(LINK_SET, MENU_RESPONSE, g_sParentMenu + "|" + WIKI, NULL_KEY);
+}
+
+// pragma inline
+HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
+{
+   if ( iNum <= COMMAND_OWNER && iNum >= COMMAND_WEARER)
+    {
+        if (sStr == "wiki")          // open the wiki page
+        {
+            remenu(kID);
+            llLoadURL(kID, "Read the online documentation, see the release note, get tips and infos for designers or report bugs on our website.", WIKI_URL);
+        }
+        
+    }
+    else if (iNum == COMMAND_OWNER || ((iNum < COMMAND_OWNER) && (iNum >= COMMAND_WEARERLOCKEDOUT) && (kID == g_kWearer)))
+    {
+        if (sStr == "cachedump")
+        {
+            DumpCache("db");
+            DumpCache("local");
+        }
+        else if (sStr == "reset" || sStr == "runaway")
+        {
+            g_lSettingsCache = [];
+            g_lSettingsCache = [];
+            if (g_iOnLine)
+            {
+                llHTTPRequest( g_sHTTPDB + "db/" + ALLTOKEN+"?d=TRUE", [HTTP_METHOD, "POST"], "");
+                llSleep(2.0);
+                //save that we got a reset command:
+                llMessageLinked(LINK_SET, SETTING_SAVE, "lastReset=" + (string)llGetUnixTime(), "");
+            }
+        }
+        else if (sStr == "remoteon")
+        {
+            if (g_iOnLine)
+            {
+                g_iRemoteOn = TRUE;
+                Notify(kID, "Remote On.",TRUE);
+                llMessageLinked(LINK_SET, SETTING_SAVE, "remoteon=1", NULL_KEY);
+            }
+            else Notify(kID, "Sorry, remote control only works in online mode.", FALSE);
+        }
+        else if (sStr == "remoteoff")
+        {
+            //wearer can't turn remote off
+            if (iNum != COMMAND_OWNER)
+            {
+                Notify(kID, "Sorry, only the primary owner can turn off the remote.",FALSE);
+            }
+            else
+            {
+                g_iRemoteOn = FALSE;
+                Notify(kID, "Remote Off.", TRUE);
+                llMessageLinked(LINK_SET, SETTING_SAVE, "remoteon=0", NULL_KEY);
+            }
+        }
+        else if ((sStr == "online") || (sStr == "offline"))
+        {
+            //wearer can't change online mode
+            if (iNum != COMMAND_OWNER || kID != g_kWearer)
+            {
+                Notify(kID, "Sorry, only a self-owned wearer can enable " + sStr + " mode.", FALSE);
+            }
+            else
+            {
+                g_iOnLine = (~g_iOnLine);
+                llMessageLinked(LINK_SET, MENU_REMOVE, g_sParentMenu + "|" + g_sOnLineButton, NULL_KEY);
+                llMessageLinked(LINK_SET, SETTING_RESPONSE,"online=" + (string)g_iOnLine,NULL_KEY);
+                if (sStr == "offline")
+                {
+                    g_sOnLineButton = g_sOnLineOFF;
+                    llMessageLinked(LINK_SET, MENU_RESPONSE, g_sParentMenu + "|" + g_sOnLineButton, NULL_KEY);
+                    Notify(kID, "Online mode disabled.", TRUE);
+                }
+                else
+                {
+                    Notify(kID, "Online mode enabled. Restoring settings from database.", TRUE);
+                    init();
+                }
+            }
+            remenu(kID);
+        }
+        else if (sStr == "cleanup")
+            // delete vaues stored in the DB and restores thr most important setting
+        {
+            if (!g_iOnLine)
+                // if we are offline, we dont do anything
+            {
+                llOwnerSay("Your collar is offline mode, so you cannot perform a cleanup of the HTTP database.");
+            }
+            else
+            {
+                // we are online, so we inform the user
+                llOwnerSay("The settings from the database will now be deleted. After that the settings for the following values will restored, but you might need to restore settings for badword, colors, textures etc.: "+llList2CSV(g_lKeep_on_Cleanup)+".\nThe cleanup may take about 1 minute.");
+                // delete the values fromt he db and take a nap
+                llHTTPRequest( g_sHTTPDB + "db/" + ALLTOKEN+"?d=TRUE", [HTTP_METHOD, "POST"], "");
+                llSleep(3.0);
+                // before we dbcache the settings to be restored
+                integer m=llGetListLength(g_lKeep_on_Cleanup);
+                integer i;
+                string t;
+                string v;
+                list tempg_lSettingsCache;
+                for (i=0;i<m;i++)
+                {
+                    t=llList2String(g_lKeep_on_Cleanup,i);
+                    if (CacheValExists(g_lSettingsCache, t))
+                    {
+                        tempg_lSettingsCache+=[t,GetCacheVal(g_lSettingsCache, t,0)];
+                    }
+                }
+                // now we can clean the dbcache
+                g_lSettingsCache=[];
+                // and restore the values we
+                m=llGetListLength(tempg_lSettingsCache);
+                for (i=0;i<m;i=i+2)
+                {
+                    t=llList2String(tempg_lSettingsCache,i);
+                    v=llList2String(tempg_lSettingsCache,i+1);
+                    SETTING_Query("PUT",t, v);
+                    g_lSettingsCache = SetCacheVal(g_lSettingsCache, t, v,0);
+                }
+                llOwnerSay("The cleanup has been performed. You can use the collar normaly again, but some of your previous settings may need to be redone. Resetting now.");
+                llMessageLinked(LINK_SET, SETTING_SAVE, "lastReset=" + (string)llGetUnixTime(), "");
+
+                llSleep(1.0);
+
+                llMessageLinked(LINK_SET, COMMAND_OWNER, "resetscripts", kID);
+            }
+
+        }
+    }
+}
+
+remenu(key kID)
+{
+    if (g_iRemenu) 
+    {
+        g_iRemenu=FALSE; 
+        llMessageLinked(LINK_SET, MENU_SUBMENU, g_sParentMenu, kID);
     }
 }
 
@@ -90,7 +407,7 @@ default
                     integer iCache = (integer)llJsonGetValue( sMsg, ["cache"] );
                     if (iMsgID == SETTING_SAVE)
                     {
-                        if (g_iUseDB) HTTPDB_Query("PUT",sToken,sValue);
+                        if (g_iUseDB) SETTING_Query("PUT",sToken,sValue);
                         g_lSettingsCache = SetCacheVal(g_lSettingsCache, sToken, sValue,0);
                     }
                     else if (iMsgID == SETTING_REQUEST)
@@ -112,12 +429,12 @@ default
                     else if (iMsgID == SETTING_REQUEST_NOCACHE)
                     {
                         //request the token
-                        if (g_iUseDB) HTTPDB_Query("GET",sToken,"");
+                        if (g_iUseDB) SETTING_Query("GET",sToken,"");
                     }
                     else if (iMsgID == SETTING_DELETE)
                     {
                         g_lSettingsCache = DelCacheVal(g_lSettingsCache, sToken,0);
-                        if (g_iUseDB) HTTPDB_Query("DELETE",sToken,"");
+                        if (g_iUseDB) SETTING_Query("DELETE",sToken,"");
                     }
                     else if (iMsgID == SETTING_RESPONSE && sToken == "remoteon")
                     {
@@ -135,7 +452,8 @@ default
             }    
     
     }
-    
+
+
     http_response(key kID, integer iStatus, list lMeta, string sBody)
     {
         string sOwners;
@@ -186,7 +504,7 @@ default
                 Notify(g_kWearer, BASE_ERROR_MESSAGE+"Start ERROR:"+(string)iStatus+" b:"+sBody, TRUE);
             }
             sOwners = "";
-           // ready();
+            ready();
         }
         else
         {
@@ -237,7 +555,7 @@ default
                     if (iStatus == 404)
                     {
 //#mdebug info	                    	
-//@                        Debug("404 on delete");
+                        Debug("404 on delete");
 //#enddebug	                        
                         return;//this is not an error
                     }
@@ -269,7 +587,7 @@ default
                     {
                         g_sHTTPDB = sValue;
                     }
-                    SetCacheVal(g_lDefaultCache,sToken,sValue,0);
+                    g_lDefaultCache = SetCacheVal(g_lDefaultCache,sToken,sValue,0);
                 }
                 g_iLine++;
                 g_kDataID = llGetNotecardLine(g_sCard, g_iLine);

@@ -15,25 +15,27 @@
 
 //key owner;
 //string g_lOwnerName;
-list g_lOwners;     //strided list in form key,name
-key g_kGroup = "";
+
 string g_sGroupName;
-integer g_iGroupEnabled = FALSE;
-list g_lSecOwners;  //strided list in the form key,name
-list g_lBlackList;  //list of blacklisted UUID
+
 string g_sTmpName;  //used temporarily to store new owner or secowner name while retrieving key
 
 string  g_sWikiURL = "http://www.collardb.com/static/UserDocumentation";
+
 string g_sParentMenu = "Main";
 string g_sSubMenu = "Owners";
 
 string g_sRequestType; //may be "owner" or "secowner" or "remsecowner"
+
 key g_kHTTPID;
 key g_kGroupHTTPID;
 
 string g_sOwnersToken = "owner";
-string g_sSecOwnersToken = "secowners";
+string g_sSecOwnersToken = "secowner";
 string g_sBlackListToken = "blacklist";
+
+list g_lAuthTokens = ["","owner","secowner","blacklist"];
+list g_lRemAuthTokens = ["","remowners","remsecowner","remblacklist"];
 
 string g_sPrefix;
 
@@ -64,9 +66,7 @@ string g_sOwnerScan = "ownerscan";
 string g_sSecOwnerScan = "secownerscan";
 string g_sBlackListScan = "blacklistscan";
 
-integer g_iOpenAccess; // 0: disabled, 1: openaccess
 integer g_iLimitRange=1; // 0: disabled, 1: limited
-integer g_kWearerlocksOut;
 
 integer g_iRemenu = FALSE;
 
@@ -79,28 +79,15 @@ $import lib.CommonFunctions.lslm ();
 
 NewPerson(key kID, string sName, string sType)
 {//adds new owner, secowner, or blacklisted, as determined by type.
-    if (sType == "owner")
+    if (~llListFindList(g_lAuthTokens,[sType]))
     {
-    	g_lOwners = SetCacheVal(g_lOwners,kID, sName,0);
-        llMessageLinked(LINK_SET, SETTING_SAVE, g_sOwnersToken + "=" + llDumpList2String(g_lOwners, ","), "");
-        //added for attachment interface to announce owners have changed
-        llWhisper(g_iInterfaceChannel, "CollarCommand|499|OwnerChange");
+	    setAuthList(llListFindList(g_lAuthTokens,[sType]),SetCacheVal(getAuthList(llListFindList(g_lAuthTokens,[sType]),FALSE),kID, sName,0));
+	    llMessageLinked(LINK_SET, SETTING_SAVE, g_sOwnersToken + "=" + llDumpList2String(getAuthList(OWNERLIST,FALSE), ","), "");		
     }
-    else if (sType == "secowner")
-    {
-    	g_lSecOwners = SetCacheVal(g_lSecOwners,kID, sName,0);
-        llMessageLinked(LINK_SET, SETTING_SAVE, g_sSecOwnersToken + "=" + llDumpList2String(g_lSecOwners, ","), "");
-        //added for attachment interface to announce owners have changed
-        llWhisper(g_iInterfaceChannel, "CollarCommand|499|OwnerChange");
-    }
-    else if (sType == "blacklist")
-    {
-    	g_lBlackList = SetCacheVal(g_lBlackList,kID, sName,0);
-        llMessageLinked(LINK_SET, SETTING_SAVE, g_sBlackListToken + "=" + llDumpList2String(g_lBlackList, ","), "");
-    }
-    
+   
     if (kID != g_kWearer)
     {
+    	
         Notify(g_kWearer, "Added " + sName + " to " + sType + ".", FALSE);
         if (sType == "owner")
         {
@@ -112,7 +99,53 @@ NewPerson(key kID, string sName, string sType)
     { 
     	Notify(kID, "You have been added to the " + sType + " list on " + llKey2Name(g_kWearer) + "'s collar.\nFor help concerning the collar usage either say \"" + g_sPrefix + "help\" in chat or go to " + g_sWikiURL + " .",FALSE);
     }
+}
 
+RemovePerson(string sName, string sToken, key kCmdr)
+{
+//#mdebug info
+    Debug("removing: " + sName);
+//#enddebug
+
+    if (~llListFindList(g_lRemAuthTokens,[sToken]))
+    {
+    	string sAuthToken = llList2String(g_lAuthTokens,llListFindList(g_lRemAuthTokens,[sToken]));
+	    //all our comparisons will be cast to lower case first
+	    sName = llToLower(sName);
+	    
+	    integer iIndex = llListFindList(getAuthList(llListFindList(g_lRemAuthTokens,[sToken]),TRUE),[sName]);
+	    
+	    if(iIndex != -1)
+	    {
+	    	key kRemovedPerson = llList2String(getAuthList(llListFindList(g_lRemAuthTokens,[sToken]),FALSE),iIndex -1);
+	    	string sThisName = llList2String(getAuthList(llListFindList(g_lRemAuthTokens,[sToken]),FALSE),iIndex);
+	    	setAuthList(llListFindList(g_lRemAuthTokens,[sToken]),llDeleteSubList(getAuthList(llListFindList(g_lRemAuthTokens,[sToken]),FALSE), iIndex -1 , iIndex));
+
+	        if (sAuthToken == g_sOwnersToken || sAuthToken == g_sSecOwnersToken)
+	        {
+	        	if (kRemovedPerson!=g_kWearer)
+	            {
+	            	Notify(kRemovedPerson,"You have been removed as " + sAuthToken + " on the collar of " + llKey2Name(g_kWearer) + ".",FALSE);
+	            }
+	        }
+	        
+	        
+	        if (llGetListLength(getAuthList(llListFindList(g_lRemAuthTokens,[sToken]),FALSE))>0)
+	        {
+	            llMessageLinked(LINK_SET, SETTING_SAVE, sAuthToken + "=" + llDumpList2String(getAuthList(llListFindList(g_lAuthTokens,[sToken]),FALSE), ","), "");
+	        }
+	        else
+	        {
+	            llMessageLinked(LINK_SET, SETTING_DELETE, sAuthToken, "");
+	        }
+	        
+	        Notify(kCmdr, sName + " removed from list.", TRUE);	              
+	    }
+	    else
+	    {
+	        Notify(kCmdr, "Error: '" + sName + "' not in list.",FALSE);
+	    }		    
+    }
 }
 
 Name2Key(string sFormattedName)
@@ -124,11 +157,13 @@ AuthMenu(key kAv)
 {
     string sPrompt = "Pick an option.";
     list lButtons = [g_sSetOwner, g_sSetSecOwner, g_sSetBlackList, g_sRemOwner, g_sRemSecOwner, g_sRemBlackList];
+    key kGroup = (string)llGetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_WHITELIST]);
+    integer iOpenAccess = (integer)((string)llGetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_SCALE]));
 
-    if (g_kGroup=="") lButtons += [g_sSetGroup];    //set group
+    if (kGroup=="") lButtons += [g_sSetGroup];    //set group
     else lButtons += [g_sUnsetGroup];    //unset group
 
-    if (g_iOpenAccess) lButtons += [g_sUnsetOpenAccess];    //set open access
+    if (iOpenAccess) lButtons += [g_sUnsetOpenAccess];    //set open access
     else lButtons += [g_sSetOpenAccess];    //unset open access
 
     if (g_iLimitRange) lButtons += [g_sUnsetLimitRange];    //set ranged
@@ -142,11 +177,12 @@ AuthMenu(key kAv)
     g_kAuthMenuID = Dialog(kAv, sPrompt, lButtons, [UPMENU], 0);
 }
 
-RemPersonMenu(key kID, list lPeople, string sType)
+RemPersonMenu(key kID, string sType)
 {
     g_sRequestType = sType;
     string sPrompt = "Choose the person to remove.";
     list lButtons;
+    list lPeople = getAuthList(llListFindList(g_lRemAuthTokens,[sType]),FALSE);
     //build a button list with the dances, and "More"
     //get number of secowners
     integer iNum= llGetListLength(lPeople);
@@ -163,185 +199,6 @@ RemPersonMenu(key kID, list lPeople, string sType)
     lButtons += ["Remove All"];
 
     g_kSensorMenuID = Dialog(kID, sPrompt, lButtons, [UPMENU], 0);
-}
-
-integer in_range(key kID) {
-    if (g_iLimitRange) {
-        integer range = 20;
-        vector kAvpos = llList2Vector(llGetObjectDetails(kID, [OBJECT_POS]), 0);
-        if (llVecDist(llGetPos(), kAvpos) > range) {
-            //llOwnerSay(llKey2Name(kID) + " is not in range...");
-            llDialog(kID, "\n\nNot in range...", [], 298479);
-            return FALSE;
-        }
-        else {
-            //llOwnerSay(llKey2Name(kID) + " In range...");
-            return TRUE;
-        }
-    }
-    else {
-        return TRUE;
-    }
-}
-
-integer UserAuth(string kID, integer attachment)
-{
-    //Nan: the auth script in 3.3 had a separate UserAuthAttach function that was identical to this one except omitted
-    //the lockout block (the first "if").  I've added the "attachment" argument to this function in 3.4 to accomplish the same thing
-    //Let's try not to duplicate code if we don't have to!
-    integer iNum;
-    if (g_kWearerlocksOut && kID == (string)g_kWearer && !attachment)
-    {
-        iNum = COMMAND_WEARERLOCKEDOUT;
-    }
-    else if (~llListFindList(g_lOwners, [(string)kID]))
-    {
-        iNum = COMMAND_OWNER;
-    }
-    else if (llGetListLength(g_lOwners) == 0 && kID == (string)g_kWearer)
-    {
-        //if no owners set, then wearer's cmds have owner auth
-        iNum = COMMAND_OWNER;
-    }
-    else if (~llListFindList(g_lBlackList, [(string)kID]))
-    {
-        iNum = COMMAND_BLACKLIST;
-    }
-    else if (~llListFindList(g_lSecOwners, [(string)kID]))
-    {
-        iNum = COMMAND_SECOWNER;
-    }
-    else if (kID == (string)g_kWearer)
-    {
-        iNum = COMMAND_WEARER;
-    }
-    else if (g_iOpenAccess)
-    {
-        if (in_range((key)kID))
-            iNum = COMMAND_GROUP;
-        else
-            iNum = COMMAND_EVERYONE;
-    }
-    else if (llSameGroup(kID) && g_iGroupEnabled && kID != (string)g_kWearer)
-    {
-        if (in_range((key)kID))
-            iNum = COMMAND_GROUP;
-        else
-            iNum = COMMAND_EVERYONE;
-    }
-    else
-    {
-        iNum = COMMAND_EVERYONE;
-    }
-    return iNum;
-}
-
-integer ObjectAuth(key obj, key kObjOwnerKey)
-{
-    integer iNum;
-    if (g_kWearerlocksOut && kObjOwnerKey == g_kWearer)
-    {
-        iNum = COMMAND_WEARERLOCKEDOUT;
-    }
-    else if (~llListFindList(g_lOwners, [(string)kObjOwnerKey]))
-    {
-        iNum = COMMAND_OWNER;
-    }
-    else if (llGetListLength(g_lOwners) == 0 && kObjOwnerKey == g_kWearer)
-    {
-        //if no owners set, then wearer's objects' cmds have owner auth
-        iNum = COMMAND_OWNER;
-    }
-    else if (~llListFindList(g_lBlackList, [(string)kObjOwnerKey]))
-    {
-        iNum = COMMAND_BLACKLIST;
-    }
-    else if (~llListFindList(g_lSecOwners, [(string)kObjOwnerKey]))
-    {
-        iNum = COMMAND_SECOWNER;
-    }
-    else if ((string)llGetObjectDetails(obj, [OBJECT_GROUP]) == (string)g_kGroup && kObjOwnerKey != g_kWearer)
-    {//meaning that the command came from an object set to our control group, and is not owned by the wearer
-        iNum = COMMAND_GROUP;
-    }
-    else if (g_iOpenAccess && llListFindList(g_lBlackList,[kObjOwnerKey])==-1)
-    {
-        iNum = COMMAND_GROUP;
-    }
-    else if (kObjOwnerKey == g_kWearer)
-    {
-        iNum = COMMAND_WEARER;
-    }
-    else
-    {
-        iNum = COMMAND_EVERYONE;
-    }
-    return iNum;
-}
-
-list RemovePerson(list lPeople, string sName, string sToken, key kCmdr)
-{
-    //where "lPeople" is a 2-strided list in form key,name
-    //looks for strides identified by "name", removes them if found, and returns the list
-    //also handles notifications so as to reduce code duplication in the link message event
-//#mdebug info
-//@    Debug("removing: " + sName);
-//#enddebug    
-    //all our comparisons will be cast to lower case first
-    sName = llToLower(sName);
-    integer iChange = FALSE;
-    integer n;
-    key kRemovedPerson;
-    //loop from the top and work down, so we don't skip when we remove things
-    for (n = llGetListLength(lPeople) - 1; n >= 0; n = n - 2)
-    {
-        string sThisName = llToLower(llList2String(lPeople, n));
-//#mdebug info        
-//@        Debug("checking " + sThisName);
-//#enddebug       
-        if (sName == sThisName)
-        {   //remove name and key
-            kRemovedPerson=llList2String(lPeople,n - 1);
-            lPeople = llDeleteSubList(lPeople, n - 1, n);
-            iChange = TRUE;
-        }
-    }
-
-    if (iChange)
-    {
-        if (sToken == g_sOwnersToken || sToken == g_sSecOwnersToken)
-        {// is it about owners?
-            if (kRemovedPerson!=g_kWearer)
-                // if it isnt the wearer, we are nice and notify them
-            {
-                if (sToken == g_sOwnersToken)
-                {
-                    Notify(kRemovedPerson,"You have been removed as owner on the collar of " + llKey2Name(g_kWearer) + ".",FALSE);
-                }
-                else
-                {
-                    Notify(kRemovedPerson,"You have been removed as secowner on the collar of " + llKey2Name(g_kWearer) + ".",FALSE);
-                }
-            }
-            //whisper to attachments about owner and secowner changes
-            llWhisper(g_iInterfaceChannel, "CollarCommand|499|OwnerChange");
-        }
-        //save to db
-        if (llGetListLength(lPeople)>0)
-        {
-            llMessageLinked(LINK_SET, SETTING_SAVE, sToken + "=" + llDumpList2String(lPeople, ","), "");
-        }
-        else
-        {
-            llMessageLinked(LINK_SET, SETTING_DELETE, sToken, "");
-        }
-        Notify(kCmdr, sName + " removed from list.", TRUE);
-    }
-    else
-    {
-        Notify(kCmdr, "Error: '" + sName + "' not in list.",FALSE);
-    }
-    return lPeople;
 }
 
 integer isKey(string sIn) {
@@ -399,7 +256,7 @@ default
     {   //until set otherwise, wearer is owner
     	g_lCacheTemplate =[""];
 //#mdebug info    	
-//@        Debug((string)llGetFreeMemory());
+        Debug((string)llGetFreeMemory());
 //#enddebug        
         g_kWearer = llGetOwner();
         list sName = llParseString2List(llKey2Name(g_kWearer), [" "], []);
@@ -421,26 +278,26 @@ default
 		        string sValue = llList2String(lParams, 1);
 		        if (sToken == g_sOwnersToken)
 		        {
-		            g_lOwners = llParseString2List(sValue, [","], []);
+		        	setAuthList(llListFindList(g_lAuthTokens,[sToken]),llParseString2List(sValue, [","], [""]));
 		        }
 		        else if (sToken == "group")
 		        {
-		            g_kGroup = (key)sValue;
+		            llSetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_WHITELIST,sValue]);
 		            //check to see if the object's group is set properly
-		            if (g_kGroup != "")
+		            if ( (string)llGetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_WHITELIST]) != "")
 		            {
-		                if ((key)llList2String(llGetObjectDetails(llGetKey(), [OBJECT_GROUP]), 0) == g_kGroup)
+		                if ((key)llList2String(llGetObjectDetails(llGetKey(), [OBJECT_GROUP]), 0) == (string)llGetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_WHITELIST]))
 		                {
-		                    g_iGroupEnabled = TRUE;
+		                	llSetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_ZOOM,TRUE]);
 		                }
 		                else
 		                {
-		                    g_iGroupEnabled = FALSE;
+		                	llSetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_ZOOM,FALSE]);
 		                }
 		            }
 		            else
 		            {
-		                g_iGroupEnabled = FALSE;
+		                llSetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_ZOOM,FALSE]);
 		            }
 		        }
 		        else if (sToken == "groupname")
@@ -449,19 +306,19 @@ default
 		        }
 		        else if (sToken == "openaccess")
 		        {
-		            g_iOpenAccess = (integer)sValue;
+		        	llSetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_SCALE,sValue]);
 		        }
 		        else if (sToken == "limitrange")
 		        {
 		            g_iLimitRange = (integer)sValue;
 		        }
-		        else if (sToken == "secowners")
+		        else if (sToken == "secowner")
 		        {
-		            g_lSecOwners = llParseString2List(sValue, [","], [""]);
+		            setAuthList(llListFindList(g_lAuthTokens,[sToken]),llParseString2List(sValue, [","], [""]));
 		        }
 		        else if (sToken == "blacklist")
 		        {
-		            g_lBlackList = llParseString2List(sValue, [","], [""]);
+		            setAuthList(llListFindList(g_lAuthTokens,[sToken]),llParseString2List(sValue, [","], [""]));
 		        }
 		        else if (sToken == "prefix")
 		        {
@@ -471,6 +328,7 @@ default
         }
         else if ((iNum >= MENU_REQUEST) && (iNum <= MENU_REMOVE))
         {
+        	Debug("MENU: " + (string)g_kAuthMenuID + "|" + (string)kID + " | " + sStr);        	
 		    if (iNum == MENU_SUBMENU)
 		    {
 		        if (sStr == g_sSubMenu)
@@ -483,16 +341,20 @@ default
 		         llMessageLinked(LINK_SET, MENU_RESPONSE, g_sParentMenu + "|" + g_sSubMenu, "");
 		    }
         }
-        else if ((iNum >= DIALOG_TIMEOUT) && (iNum <= DIALOG_REQUEST))
+        else if ((iNum >= DIALOG_REQUEST) && (iNum <= DIALOG_TIMEOUT))
         {
+			Debug("DIALOG: " + (string)g_kAuthMenuID + "|" + (string)kID + " | " + sStr);        	
 		    if (iNum == DIALOG_RESPONSE)
-		    {
+		    {	
+		    	Debug("DIALOG_RESPONSE " + (string)g_kAuthMenuID + "|" + (string)kID + " | " + sStr);
 		        if (llListFindList([g_kAuthMenuID, g_kSensorMenuID], [kID]) != -1)
 		        {
 		            list lMenuParams = llParseString2List(sStr, ["|"], []);
-		            key kAv = (key)llList2String(lMenuParams, 0);
+		           // string sJSON = llList2String(lMenuParams, 0);
+                    key kAv = llList2Key(lMenuParams, 0);
 		            string sMessage = llList2String(lMenuParams, 1);
 		            integer iPage = (integer)llList2String(lMenuParams, 2);
+		            Debug("DIALOG_RESPONSE " + (string)kAv + " | " + sMessage);
 		            if (kID == g_kAuthMenuID)
 		            {
 		                //g_kAuthMenuID responds to setowner, setsecowner, setblacklist, remowner, remsecowner, remblacklist
@@ -523,15 +385,15 @@ default
 		                    }
 		                    else if (sMessage == g_sRemOwner)
 		                    {
-		                        RemPersonMenu(kAv, g_lOwners, "remowners");
+		                        RemPersonMenu(kAv, "remowners");
 		                    }
 		                    else if (sMessage == g_sRemSecOwner)
 		                    {   
-		                        RemPersonMenu(kAv, g_lSecOwners, "remsecowner");
+		                        RemPersonMenu(kAv, "remsecowner");
 		                    }
 		                    else if (sMessage == g_sRemBlackList)
 		                    {   
-		                        RemPersonMenu(kAv, g_lBlackList, "remblacklist");
+		                        RemPersonMenu(kAv, "remblacklist");
 		                    }
 		                }
 		                if (sMessage == g_sSetGroup)
@@ -571,7 +433,7 @@ default
 		                else if (sMessage == g_sListOwners)
 		                {
 		//#mdebug info                	
-		//@                    Debug("ListOwner:" + (string)kAv);
+		                    Debug("ListOwner:" + (string)kAv);
 		//#enddebug                    
 		                    llMessageLinked(LINK_SET, COMMAND_NOAUTH, "listowners", kAv);
 		                    AuthMenu(kAv);
@@ -582,7 +444,7 @@ default
 		                if (sMessage != UPMENU)
 		                {
 		//#mdebug info                	
-		//@                    Debug(g_sRequestType);
+		                    Debug(g_sRequestType);
 		//#enddebug                    
 		                    if (OwnerCheck(kAv))
 		                    {
@@ -596,17 +458,10 @@ default
 		                            //build a chat command to send to remove the person
 		                            string sCmd = g_sRequestType;
 		                            //convert the menu button number to a name
-		                            if (g_sRequestType == "remowners")
+									sCmd += " " + llList2String(getAuthList(llListFindList(g_lRemAuthTokens,[g_sRequestType]),FALSE), (integer)sMessage*2 - 1);		                            
+		                            if ((g_sRequestType == "remowners") || (g_sRequestType == "remsecowner") || (g_sRequestType == "remblacklist"))
 		                            {
-		                                sCmd += " " + llList2String(g_lOwners, (integer)sMessage*2 - 1);
-		                            }
-		                            else if(g_sRequestType == "remsecowner")
-		                            {
-		                                sCmd += " " + llList2String(g_lSecOwners, (integer)sMessage*2 - 1);
-		                            }
-		                            else if(g_sRequestType == "remblacklist")
-		                            {
-		                                sCmd += " " + llList2String(g_lBlackList, (integer)sMessage*2 - 1);
+		                                sCmd += " " + llList2String(getAuthList(llListFindList(g_lRemAuthTokens,[g_sRequestType]),FALSE), (integer)sMessage*2 - 1);
 		                            }
 		                            llMessageLinked(LINK_SET, COMMAND_OWNER, sCmd, kAv);
 		                        }
@@ -644,51 +499,55 @@ default
 		    {   //on object sent a command, see if that object's owner is an owner or secowner in the collar
 		        //or if the object is set to the same group, and group is enabled in the collar
 		        //or if object is owned by wearer
-		        key kObjOwnerKey = llGetOwnerKey(kID);
-		        integer iAuth = ObjectAuth(kID, kObjOwnerKey);
+		        integer iAuth = UserAuth(kID, TRUE);
 		        llMessageLinked(LINK_SET, iAuth, sStr, kID);
 		//#mdebug info        
-		//@        Debug("noauth: " + sStr + " from object " + (string)kID + " who has auth " + (string)iAuth);
+		        Debug("noauth: " + sStr + " from object " + (string)kID + " who has auth " + (string)iAuth);
 		//#enddebug        
 		    }
 		    
 		    if (iNum == COMMAND_OWNER || kID == g_kWearer)
 		    {
 		//#mdebug info    	
-		//@        Debug("COMMAND_OWNER: " + sStr);
+		        Debug("COMMAND_OWNER: " + sStr);
 		//#enddebug        
 		        if (sStr == "settings" || sStr == "listowners")
 		        {   //say owner, secowners, group
 		            //Nan: This used to be in a function called SendOwnerSettings, but it was *only* called here, and
 		            //that's a waste of
 		            //Do Owners list
+		            list lPeople;
+		            lPeople = getAuthList(OWNERLIST,FALSE);
 		            integer n;
-		            integer iLength = llGetListLength(g_lOwners);
+		            integer iLength = llGetListLength(lPeople);
 		            string sOwners;
 		            for (n = 0; n < iLength; n = n + 2)
 		            {
-		                sOwners += "\n" + llList2String(g_lOwners, n + 1) + " (" + llList2String(g_lOwners, n) + ")";
+		                sOwners += "\n" + llList2String(lPeople, n + 1) + " (" + llList2String(lPeople, n) + ")";
 		            }
 		            Notify(kID, "Owners: " + sOwners,FALSE);
 		
+					lPeople = getAuthList(SECOWNERLIST,FALSE);
 		            //Do Secowners list
-		            iLength = llGetListLength(g_lSecOwners);
+		            iLength = llGetListLength(lPeople);
 		            string sSecOwners;
 		            for (n = 0; n < iLength; n = n + 2)
 		            {
-		                sSecOwners += "\n" + llList2String(g_lSecOwners, n + 1) + " (" + llList2String(g_lSecOwners, n) + ")";
+		                sSecOwners += "\n" + llList2String(lPeople, n + 1) + " (" + llList2String(lPeople, n) + ")";
 		            }
 		            Notify(kID, "Secowners: " + sSecOwners,FALSE);
-		            iLength = llGetListLength(g_lBlackList);
+		            
+		            lPeople = getAuthList(BLACKLIST,FALSE);
+		            iLength = llGetListLength(lPeople);
 		            string sBlackList;
 		            for (n = 0; n < iLength; n = n + 2)
 		            {
-		                sBlackList += "\n" + llList2String(g_lBlackList, n + 1) + " (" + llList2String(g_lBlackList, n) + ")";
+		                sBlackList += "\n" + llList2String(lPeople, n + 1) + " (" + llList2String(lPeople, n) + ")";
 		            }
 		            Notify(kID, "Black List: " + sBlackList,FALSE);
 		            Notify(kID, "Group: " + g_sGroupName,FALSE);
-		            Notify(kID, "Group Key: " + (string)g_kGroup,FALSE);
-		            string sVal; if (g_iOpenAccess) sVal="true"; else sVal="false";
+		            Notify(kID, "Group Key: " + (string)llGetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_WHITELIST]),FALSE);
+		            string sVal; if ((integer)((string)llGetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_SCALE]))) sVal="true"; else sVal="false";
 		            Notify(kID, "Open Access: "+ sVal,FALSE);
 		            string sValr; if (g_iLimitRange) sValr="true"; else sValr="false";
 		            Notify(kID, "LimitRange: "+ sValr,FALSE);
@@ -700,10 +559,10 @@ default
 		            {    //IM Owners
 		                Notify(g_kWearer, "Running away from all owners started, your owners will now be notified!",FALSE);
 		                integer n;
-		                integer stop = llGetListLength(g_lOwners);
+		                integer stop = llGetListLength(getAuthList(OWNERLIST,FALSE));
 		                for (n = 0; n < stop; n += 2)
 		                {
-		                    key kOwner = (key)llList2String(g_lOwners, n);
+		                    key kOwner = (key)llList2String(getAuthList(OWNERLIST,FALSE), n);
 		                    if (kOwner != g_kWearer)
 		                    {
 		                        Notify(kOwner, llKey2Name(g_kWearer) + " has run away!",FALSE);
@@ -712,6 +571,7 @@ default
 		                Notify(g_kWearer, "Runaway finished, the collar will now reset!",FALSE);
 		                // moved reset request from settings to here to allow noticifation of owners.
 		                llMessageLinked(LINK_SET, COMMAND_OWNER, "clear", kID);
+		                llClearLinkMedia(LINK_THIS,ALL_SIDES);
 		                llMessageLinked(LINK_SET, COMMAND_OWNER, "resetscripts", kID);
 		                llResetScript();
 		            }
@@ -758,21 +618,21 @@ default
 		            g_sTmpName = llDumpList2String(lParams, " ");
 		            if (g_sTmpName=="")
 		            {
-		                RemPersonMenu(kID, g_lOwners, "remowners");
+		                RemPersonMenu(kID, sCommand);
 		            }
 		            else if(llToLower(g_sTmpName) == "remove all")
 		            {
 		                Notify(kID, "Removing of all owners started!",TRUE);
 		
-		                NotifyInList(g_lOwners, g_sOwnersToken);
+		                NotifyInList(getAuthList(llListFindList(g_lRemAuthTokens,[sCommand]),FALSE), g_sOwnersToken);
 		
-		                g_lOwners = [];
+		                setAuthList(llListFindList(g_lRemAuthTokens,[sCommand]), []);		                
 		                llMessageLinked(LINK_SET, SETTING_DELETE, g_sOwnersToken, "");
 		                Notify(kID, "Everybody was removed from the owner list!",TRUE);
 		            }
 		            else
 		            {
-		                g_lOwners = RemovePerson(g_lOwners, g_sTmpName, g_sOwnersToken, kID);
+		                 RemovePerson(g_sTmpName, sCommand, kID);
 		            }
 		        }
 		        else if (sCommand == "secowner")
@@ -789,7 +649,7 @@ default
 		                g_kDialoger = kID;
 		                llSensor("", "", AGENT, 10.0, PI);
 		            }
-		            else if (llGetListLength(g_lSecOwners) == 20)
+		            else if (llGetListLength(getAuthList(SECOWNERLIST,FALSE)) == 20)
 		            {
 		                Notify(kID, "The maximum of 10 secowners is reached, please clean up or use SetGroup",FALSE);
 		            }
@@ -816,21 +676,21 @@ default
 		            g_sTmpName = llDumpList2String(lParams, " ");
 		            if (g_sTmpName=="")
 		            {
-		                RemPersonMenu(kID, g_lSecOwners, "remsecowner");
+		                RemPersonMenu(kID, sCommand);
 		            }
 		            else if(llToLower(g_sTmpName) == "remove all")
 		            {
 		                Notify(kID, "Removing of all secowners started!",TRUE);
 		
-		                NotifyInList(g_lSecOwners, g_sSecOwnersToken);
+		                NotifyInList(getAuthList(llListFindList(g_lRemAuthTokens,[sCommand]),FALSE), g_sSecOwnersToken);
 		
-		                g_lSecOwners = [];
-		                llMessageLinked(LINK_SET, SETTING_DELETE, "secowners", "");
+		                setAuthList(llListFindList(g_lRemAuthTokens,[sCommand]), []);
+		                llMessageLinked(LINK_SET, SETTING_DELETE, "secowner", "");
 		                Notify(kID, "Everybody was removed from the secondary owner list!",TRUE);
 		            }
 		            else
 		            {
-		                g_lSecOwners = RemovePerson(g_lSecOwners, g_sTmpName, g_sSecOwnersToken, kID);
+		                 RemovePerson(g_sTmpName, sCommand, kID);
 		            }
 		        }
 		        else if (sCommand == "blacklist")
@@ -847,7 +707,7 @@ default
 		                g_kDialoger = kID;
 		                llSensor("", "", AGENT, 10.0, PI);
 		            }
-		            else if (llGetListLength(g_lBlackList) == 20)
+		            else if (llGetListLength(getAuthList(BLACKLIST,FALSE)) == 20)
 		            {
 		                Notify(kID, "The maximum of 10 blacklisted is reached, please clean up.",FALSE);
 		            }
@@ -868,17 +728,17 @@ default
 		            g_sTmpName = llDumpList2String(lParams, " ");
 		            if (g_sTmpName=="")
 		            {
-		                RemPersonMenu(kID, g_lBlackList, "remblacklist");
+		                RemPersonMenu(kID, sCommand);
 		            }
 		            else if(llToLower(g_sTmpName) == "remove all")
-		            {
-		                g_lBlackList = [];
+		            {	
+		                setAuthList(llListFindList(g_lRemAuthTokens,[sCommand]), []);
 		                llMessageLinked(LINK_SET, SETTING_DELETE, g_sBlackListToken, "");
 		                Notify(kID, "Everybody was removed from black list!", TRUE);
 		            }
 		            else
 		            {
-		                g_lBlackList = RemovePerson(g_lBlackList, g_sTmpName, g_sBlackListToken, kID);
+		                RemovePerson(g_sTmpName, sCommand, kID);
 		            }
 		        }
 		        else if (sCommand == "setgroup")
@@ -887,21 +747,21 @@ default
 		            //if no arguments given, use current group, else use key provided
 		            if (isKey(llList2String(lParams, 1)))
 		            {
-		                g_kGroup = (key)llList2String(lParams, 1);
+		                llSetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_WHITELIST,llList2String(lParams, 1)]);
 		            }
 		            else
 		            {
 		                //record current group key
-		                g_kGroup = (key)llList2String(llGetObjectDetails(llGetKey(), [OBJECT_GROUP]), 0);
+		                llSetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_WHITELIST,llList2String(llGetObjectDetails(llGetKey(), [OBJECT_GROUP]), 0)]);
 		            }
 		
-		            if (g_kGroup != "")
+		            if ((string)llGetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_WHITELIST]) != "")
 		            {
-		                llMessageLinked(LINK_SET, SETTING_SAVE, "group=" + (string)g_kGroup, "");
-		                g_iGroupEnabled = TRUE;
+		                llMessageLinked(LINK_SET, SETTING_SAVE, "group=" + (string)llGetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_WHITELIST]), "");
+		                llGetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_ZOOM,TRUE]);
 		                g_kDialoger = kID;
 		                //get group name from
-		                g_kGroupHTTPID = llHTTPRequest("http://data.collardb.com/groupname/GetGroupName?group=" + (string)g_kGroup, [HTTP_METHOD, "GET"], "");
+		                g_kGroupHTTPID = llHTTPRequest("http://data.collardb.com/groupname/GetGroupName?group=" + (string)llGetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_WHITELIST]), [HTTP_METHOD, "GET"], "");
 		            }
 		            remenu(kID);
 		        }
@@ -912,31 +772,28 @@ default
 		        }
 		        else if (sCommand == "unsetgroup")
 		        {
-		            g_kGroup = "";
+		            llSetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_WHITELIST,""]);
 		            g_sGroupName = "";
 		            llMessageLinked(LINK_SET, SETTING_DELETE, "group", "");
 		            llMessageLinked(LINK_SET, SETTING_DELETE, "groupname", "");
-		            g_iGroupEnabled = FALSE;
+		            llGetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_ZOOM,FALSE]);
+
 		            Notify(kID, "Group unset.", FALSE);
 		            remenu(kID);
-		            //added for attachment interface to announce owners have changed
-		            llWhisper(g_iInterfaceChannel, "CollarCommand|499|OwnerChange");
 		        }
 		        else if (sCommand == "setopenaccess")
 		        {
-		            g_iOpenAccess = TRUE;
-		            llMessageLinked(LINK_SET, SETTING_SAVE, "openaccess=" + (string) g_iOpenAccess, "");
+		        	llSetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_SCALE,TRUE]);
+		            llMessageLinked(LINK_SET, SETTING_SAVE, "openaccess=" + (string)llGetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_SCALE]), "");
 		            Notify(kID, "Open access set.", FALSE);
 		            remenu(kID);
 		        }
 		        else if (sCommand == "unsetopenaccess")
 		        {
-		            g_iOpenAccess = FALSE;
+		        	llSetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_SCALE,FALSE]);
 		            llMessageLinked(LINK_SET, SETTING_DELETE, "openaccess", "");
 		            Notify(kID, "Open access unset.", FALSE);
 		            remenu(kID);
-		            //added for attachment interface to announce owners have changed
-		            llWhisper(g_iInterfaceChannel, "CollarCommand|499|OwnerChange");
 		        }
 		        else if (sCommand == "setlimitrange")
 		        {
@@ -964,10 +821,10 @@ default
 		        string sSubName = llKey2Name(g_kWearer);
 		        string sSubFirstName = llList2String(llParseString2List(sSubName, [" "], []), 0);
 		        integer n;
-		        integer iStop = llGetListLength(g_lOwners);
+		        integer iStop = llGetListLength(getAuthList(OWNERLIST,FALSE));
 		        for (n = 0; n < iStop; n += 2)
 		        {
-		            key kOwner = (key)llList2String(g_lOwners, n);
+		            key kOwner = (key)llList2String(getAuthList(OWNERLIST,FALSE), n);
 		            Notify(kOwner, "Your sub " + sSubName + " has used the safeword. Please check on " + sSubFirstName +"'s well-being and if further care is required.",FALSE);
 		        }
 		        //added for attachment interface (Garvin)
@@ -988,7 +845,7 @@ default
                 llMessageLinked(LINK_SET, iAuth, sStr, kID);
             }
 //#mdebug info
-//@            Debug("noauth: " + sStr + " from " + (string)kID + " who has auth " + (string)iAuth);
+            Debug("noauth: " + sStr + " from " + (string)kID + " who has auth " + (string)iAuth);
 //#enddebug            
         }
         //added for attachment auth (Garvin)
@@ -1001,16 +858,16 @@ default
         {
             if (sStr == "on")
             {
-                g_kWearerlocksOut=TRUE;
+            	llSetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_LOOP,TRUE]);
 //#mdebug info                
-//@                Debug("locksOuton");
+                Debug("locksOuton");
 //#enddebug                
             }
             else if (sStr == "off")
             {
-                g_kWearerlocksOut=FALSE;
+            	llSetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_LOOP,FALSE]);
 //#mdebug info                
-//@                Debug("lockoutoff");
+                Debug("lockoutoff");
 //#enddebug                
             }
         }
@@ -1105,7 +962,7 @@ default
             if (iStatus == 200)
             {
 //#mdebug info            	
-//@                Debug(sBody);
+                Debug(sBody);
 //#enddebug                
                 if (isKey(sBody))
                 {

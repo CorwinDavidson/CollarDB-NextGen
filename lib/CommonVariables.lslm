@@ -6,7 +6,12 @@ key g_kDialogID;
 
 list g_lCacheTemplate = [];
 list g_lButtons = [];
+list g_lOwners;
 
 string UPMENU = "^";
 
 integer g_iDebug;
+
+integer OWNERLIST = 1;
+integer SECOWNERLIST = 2;
+integer BLACKLIST = 3;
