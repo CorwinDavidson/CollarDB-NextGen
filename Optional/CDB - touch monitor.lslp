@@ -20,8 +20,6 @@
 //  VARIABLES  //
 //-------------*/
 
-list g_lOwners;
-
 string g_sSubMenu = "Touch";
 string g_sParentMenu = "AddOns";
 string g_sChatCommand = "touchmon";
@@ -47,22 +45,6 @@ $import lib.CommonFunctions.lslm ();
 /*---------------//
 //  FUNCTIONS    //
 //---------------*/
-
-NotifyOwners(string sMsg)
-{
-    integer n;
-    integer stop = llGetListLength(g_lOwners);
-    for (n = 0; n < stop; n += 2)
-    {
-        if (g_kWearer != llGetOwner())
-        {
-            llResetScript();
-            return;
-        }
-        else
-            Notify((key)llList2String(g_lOwners, n), sMsg, FALSE);
-    }
-}
 
 DoMenu(key keyID)
 {
@@ -171,7 +153,7 @@ HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
         {
             if (sStr == "touch")
             {           
-                NotifyOwners(llKey2Name(kID) + " touched " + llKey2Name(llGetOwner()) + "'s Collar");
+                NotifyOwners(llKey2Name(kID) + " touched " + llKey2Name(llGetOwner()) + "'s Collar",g_lOwners);
                 Notify(g_kWearer, (string)llKey2Name(kID) + " touched your Collar.",FALSE);
             }
 

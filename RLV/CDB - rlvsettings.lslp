@@ -14,8 +14,6 @@
 //  VARIABLES  //
 //-------------*/
 
-list g_lOwners;
-
 string g_sParentMenu = "RLV";
 string g_sSubMenu_misc = "Misc";
 string g_sDBToken_misc = "rlvmisc";

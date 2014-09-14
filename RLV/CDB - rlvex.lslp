@@ -58,7 +58,6 @@ key lmkMenuID;
 key g_kDialoger;
 list g_lScan;
 
-list g_lOwners;
 list g_lSecOwners;
 
 string g_sParentMenu = "RLV";

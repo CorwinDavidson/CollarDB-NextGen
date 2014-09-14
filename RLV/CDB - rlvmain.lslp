@@ -53,7 +53,6 @@ string CLEAR = "*Clear All*";
 
 integer g_iLastDetach; //unix time of the last detach: used for checking if the detached time was small enough for not triggering the ping mechanism
 
-list g_lOwners;
 
 list g_lSources=[];
 list g_lRestrictions=[];

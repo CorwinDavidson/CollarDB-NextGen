@@ -12,7 +12,6 @@
 /*-------------//
 //  VARIABLES  //
 //-------------*/
-list g_lOwners;
 
 string g_sParentMenu = "Main";
 string LOCK = "*Lock*";
@@ -39,23 +38,6 @@ $import lib.CommonFunctions.lslm ();
 /*---------------//
 //  FUNCTIONS    //
 //---------------*/
-
-NotifyOwners(string sMsg)
-{
-    integer n;
-    integer stop = llGetListLength(g_lOwners);
-    for (n = 0; n < stop; n += 2)
-    {
-        // Cleo: Stop IMs going wild
-        if (g_kWearer != llGetOwner())
-        {
-            llResetScript();
-            return;
-        }
-        else
-            Notify((key)llList2String(g_lOwners, n), sMsg, FALSE);
-    }
-}
 
 string GetPSTDate()
 { //Convert the date from UTC to PST if GMT time is less than 8 hours after midnight (and therefore tomorow's date).
@@ -315,11 +297,11 @@ default
             if(kID == NULL_KEY)
             {
                 g_bDetached = TRUE;
-                NotifyOwners(llKey2Name(g_kWearer) + " has detached me while locked at " + GetTimestamp() + "!");
+                NotifyOwners(llKey2Name(g_kWearer) + " has detached me while locked at " + GetTimestamp() + "!",g_lOwners);
             }
             else if(g_bDetached)
             {
-                NotifyOwners(llKey2Name(g_kWearer) + " has re-atached me at " + GetTimestamp() + "!");
+                NotifyOwners(llKey2Name(g_kWearer) + " has re-atached me at " + GetTimestamp() + "!",g_lOwners);
                 g_bDetached = FALSE;
             }
         }

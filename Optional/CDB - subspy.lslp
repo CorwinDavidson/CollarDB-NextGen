@@ -39,7 +39,6 @@ string g_sParentMenu = "AddOns";
 string g_sSubMenu = "Spy";
 string g_sCurrentMenu;
 
-list g_lOwners;
 string g_sSubName;
 list g_lSetttings;
 
@@ -117,7 +116,7 @@ DoReports()
     {
         sReport = "Activity report for " + g_sSubName + " at " + GetTimestamp() + sReport;
         Debug("report: " + sReport);
-        NotifyOwners(sReport);
+        NotifyRemoteOwners(sReport);
     }
 
     //flush buffers
@@ -302,7 +301,7 @@ BigNotify(key kID, string sMsg)
     }
 }
 
-NotifyOwners(string sMsg)
+NotifyRemoteOwners(string sMsg)
 {
     Debug("notifyowners");
     integer n;
