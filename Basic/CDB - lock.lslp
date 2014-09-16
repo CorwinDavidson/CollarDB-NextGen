@@ -297,11 +297,11 @@ default
             if(kID == NULL_KEY)
             {
                 g_bDetached = TRUE;
-                NotifyOwners(llKey2Name(g_kWearer) + " has detached me while locked at " + GetTimestamp() + "!",g_lOwners);
+                NotifyOwners(llKey2Name(g_kWearer) + " has detached me while locked at " + GetTimestamp() + "!");
             }
             else if(g_bDetached)
             {
-                NotifyOwners(llKey2Name(g_kWearer) + " has re-atached me at " + GetTimestamp() + "!",g_lOwners);
+                NotifyOwners(llKey2Name(g_kWearer) + " has re-atached me at " + GetTimestamp() + "!");
                 g_bDetached = FALSE;
             }
         }

@@ -153,7 +153,7 @@ HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
         {
             if (sStr == "touch")
             {           
-                NotifyOwners(llKey2Name(kID) + " touched " + llKey2Name(llGetOwner()) + "'s Collar",g_lOwners);
+                NotifyOwners(llKey2Name(kID) + " touched " + llKey2Name(llGetOwner()) + "'s Collar");
                 Notify(g_kWearer, (string)llKey2Name(kID) + " touched your Collar.",FALSE);
             }
 
