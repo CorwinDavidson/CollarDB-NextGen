@@ -34,8 +34,8 @@ string g_sRequestType; //may be "owner" or "secowner" or "remsecowner"
 key g_kHTTPID;
 key g_kGroupHTTPID;
 
-list g_lAuthTokens = ["","owner","secowner","blacklist"];
-list g_lRemAuthTokens = ["","remowners","remsecowner","remblacklist"];
+list g_lAuthTokens = ["owner","secowner","blacklist"];
+list g_lRemAuthTokens = ["remowners","remsecowner","remblacklist"];
 
 string g_sPrefix;
 
@@ -45,26 +45,6 @@ key g_kSensorMenuID;
 
 //added for attachment auth
 integer g_iInterfaceChannel = -12587429;
-
-string g_sSetOwner = "?Primary Owner";
-string g_sSetSecOwner = "?Secondary Owner";
-string g_sSetBlackList = "?Blacklisted";
-string g_sSetGroup = "Group ?";
-string g_sRunaway = "Runaway!";
-string g_sRemOwner = "?Primary Owner";
-string g_sRemSecOwner = "?Secondary Owner";
-string g_sRemBlackList = "?Blacklisted";
-string g_sUnsetGroup = "Group ?";
-string g_sListOwners = "List Owners";
-string g_sSetOpenAccess = "Public ?";
-string g_sUnsetOpenAccess = "Public ?";
-string g_sSetLimitRange = "LimitRange ?";
-string g_sUnsetLimitRange = "LimitRange ?";
-
-//request types
-string g_sOwnerScan = "ownerscan";
-string g_sSecOwnerScan = "secownerscan";
-string g_sBlackListScan = "blacklistscan";
 
 integer g_iLimitRange=1; // 0: disabled, 1: limited
 
@@ -78,10 +58,17 @@ key g_kDialoger;//the person using the dialog.  needed in the sensor event when 
 
 NewPerson(key kID, string sName, string sType)
 {//adds new owner, secowner, or blacklisted, as determined by type.
-    if (~llListFindList(g_lAuthTokens,[sType]))
+//#mdebug info	
+	Debug("NewPerson: " + sType);
+//#enddebug	
+	integer iAuth = llListFindList(g_lAuthTokens,[sType]);
+//#mdebug info	
+	Debug("NewPerson: " + (string)iAuth);
+//#enddebug	
+    if (~iAuth)
     {
-	    setAuthList(llListFindList(g_lAuthTokens,[sType]),SetCacheVal(getAuthList(llListFindList(g_lAuthTokens,[sType]),FALSE),kID, sName,0));
-	    llMessageLinked(LINK_SET, SETTING_SAVE, sType + "=" + llDumpList2String(getAuthList(OWNERLIST,FALSE), ","), "");		
+	    setAuthList(iAuth,SetCacheVal(getAuthList(iAuth,FALSE),kID, sName,0));
+	    llMessageLinked(LINK_SET, SETTING_SAVE, sType + "=" + llDumpList2String(getAuthList(iAuth,FALSE), ","), "");		
     }
    
     if (kID != g_kWearer)
@@ -159,25 +146,16 @@ Name2Key(string sFormattedName)
 
 AuthMenu(key kAv)
 {
+	list lCheckBox = ["☐","☒"];
     string sPrompt = "Pick an option.";
-    list lButtons = [g_sSetOwner, g_sSetSecOwner, g_sSetBlackList, g_sRemOwner, g_sRemSecOwner, g_sRemBlackList];
+    list lButtons = ["✚Primary Owner","✚Secondary Owner","✚Blacklisted","✘Primary Owner","✘Secondary Owner","✘Blacklisted"];
     key kGroup = (string)llGetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_WHITELIST]);
-    integer iOpenAccess = (integer)((string)llGetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_SCALE]));
 
-    if (kGroup=="") lButtons += [g_sSetGroup];    //set group
-    else lButtons += [g_sUnsetGroup];    //unset group
-
-    if (iOpenAccess) lButtons += [g_sUnsetOpenAccess];    //set open access
-    else lButtons += [g_sSetOpenAccess];    //unset open access
-
-    if (g_iLimitRange) lButtons += [g_sUnsetLimitRange];    //set ranged
-    else lButtons += [g_sSetLimitRange];    //unset open ranged
-
-    lButtons += [g_sRunaway];
-
-    //list owners
-    lButtons += [g_sListOwners];
-
+    lButtons += ["Group " + llList2String(lCheckBox,!(kGroup==""))];    //set group
+	lButtons += ["Public "  + llList2String(lCheckBox,((integer)((string)llGetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_SCALE]))))];
+	lButtons += ["LimitRange "  + llList2String(lCheckBox,(g_iLimitRange))];
+    lButtons += ["Runaway!","List Owners"];
+	
     g_kAuthMenuID = Dialog(kAv, sPrompt, lButtons, [UPMENU], 0);
 }
 
@@ -235,10 +213,85 @@ remenu(key kID)
     }
 }
 
-//pragma inline
+//pragma noinline
 userCommand(string sCmd, list lParams, key kAv, integer iIsChat)
 {
-	if ((sCmd == g_sSetGroup) || (sCmd == "setgroup"))
+	if(~llListFindList(g_lAuthTokens + g_lRemAuthTokens,[sCmd]))
+    { 
+		integer iAuthIndex = llListFindList(g_lAuthTokens,[sCmd]);
+		integer iRemAuthIndex = llListFindList(g_lRemAuthTokens,[sCmd]);
+		list lTemp = ["Owner List", "Secondary Owner List", "Blacklist"];	
+		if (~iAuthIndex)
+		{ 
+		    g_sRequestType = sCmd;
+		    //pop the command off the param list, leaving only first and last name
+		    lParams = llDeleteSubList(lParams, 0, 0);
+		    //record owner name
+		    if (llGetListLength(lParams) == 1) lParams += ["Resident"];
+		    g_sTmpName = llDumpList2String(lParams, " ");
+		    //sensor for the owner name to get the key or set the owner directly if it is the wearer
+		    if (g_sTmpName=="")
+		    {
+		        // If it was an "owner" command (iAuth = 1) and no name, show the menu
+		        if ((iAuthIndex == 0) && (iIsChat))
+		        {
+		            AuthMenu(kAv);
+		            return;
+		        }
+		        else
+		        {
+		            g_sRequestType += "scan";
+		            g_kDialoger = kAv;
+		            llSensor("", "", AGENT, 10.0, PI);
+		        }
+		    }
+		    else if (llGetListLength(getAuthList(iAuthIndex,FALSE)) == 20)
+		    {
+		        Notify(kAv, "The maximum of 10 items in the "  + llList2String(lTemp,iAuthIndex) + " is reached, please clean up.",FALSE);
+		    }
+		    else
+		    {    
+		        if(llToLower(g_sTmpName) == llToLower(llKey2Name(g_kWearer)))
+		        {
+		            NewPerson(g_kWearer, g_sTmpName, sCmd);
+		        }
+		        else
+		        {
+		            g_kDialoger = kAv;
+		            llSensor("","", AGENT, 20.0, PI);
+		        }
+		    }
+		}
+		else if (~iRemAuthIndex)
+		{ 
+		    g_sRequestType = "";
+		    //pop the command off the param list, leaving only first and last name
+		    lParams = llDeleteSubList(lParams, 0, 0);
+		    //name of person concerned
+		    if (llGetListLength(lParams) == 1) lParams += ["Resident"];
+		    g_sTmpName = llDumpList2String(lParams, " ");
+		    if (g_sTmpName=="")
+		    {
+		        RemPersonMenu(kAv, sCmd);
+		    }
+		    else if(llToLower(g_sTmpName) == "remove all")
+		    {
+		        Notify(kAv, "Removal of all from the " + llList2String(lTemp,iRemAuthIndex) + " started!",TRUE);
+		
+		        NotifyInList(getAuthList(llListFindList(g_lRemAuthTokens,[sCmd]),FALSE), sCmd);
+		
+		        setAuthList(llListFindList(g_lRemAuthTokens,[sCmd]), []);		                
+		        llMessageLinked(LINK_SET, SETTING_DELETE, sCmd, "");
+		        
+		        Notify(kAv, llList2String(lTemp,iRemAuthIndex) + " has been cleared!",TRUE);
+		    }
+		    else
+		    {
+		         RemovePerson(g_sTmpName, sCmd, kAv);
+		    }
+		}
+    }	
+	if (sCmd == "setgroup")
 	{
 	    g_sRequestType = "group";
 	    //if no arguments given, use current group, else use key provided
@@ -266,7 +319,7 @@ userCommand(string sCmd, list lParams, key kAv, integer iIsChat)
 	    if(!iIsChat) AuthMenu(kAv);
 	    			
 	}
-	else if ((sCmd == g_sUnsetGroup) || (sCmd == "unsetgroup"))
+	else if (sCmd == "unsetgroup")
 	{
         llSetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_WHITELIST,"",PRIM_MEDIA_AUTO_ZOOM,FALSE]);
         g_sGroupName = "";
@@ -280,21 +333,21 @@ userCommand(string sCmd, list lParams, key kAv, integer iIsChat)
         g_sGroupName = llDumpList2String(llList2List(lParams, 1, -1), " ");
         llMessageLinked(LINK_SET, SETTING_SAVE, "groupname=" + g_sGroupName, "");
 	}
-	else if ((sCmd == g_sSetOpenAccess) || (sCmd == "setopenaccess"))
+	else if (sCmd == "setopenaccess")
 	{
 		llSetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_SCALE,TRUE]);
 	    llMessageLinked(LINK_SET, SETTING_SAVE, "openaccess=" + (string)llGetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_SCALE]), "");
 	    Notify(kAv, "Open access set.", FALSE);
         if(!iIsChat) AuthMenu(kAv);		
 	}
-	else if ((sCmd == g_sUnsetOpenAccess) || (sCmd == "unsetopenaccess"))
+	else if (sCmd == "unsetopenaccess")
 	{
     	llSetLinkMedia(LINK_THIS,0,[PRIM_MEDIA_AUTO_SCALE,FALSE]);
         llMessageLinked(LINK_SET, SETTING_DELETE, "openaccess", "");
         Notify(kAv, "Open access unset.", FALSE);
         if(!iIsChat) AuthMenu(kAv);		
 	}
-	else if ((sCmd == g_sSetLimitRange) || (sCmd == "setlimitrange"))
+	else if (sCmd == "setlimitrange")
 	{
         g_iLimitRange = TRUE;
         // as the default is range limit on, we do not need to store anything for this
@@ -302,14 +355,14 @@ userCommand(string sCmd, list lParams, key kAv, integer iIsChat)
         Notify(kAv, "Range limited set.", FALSE);
         if(!iIsChat) AuthMenu(kAv);		
 	}
-	else if ((sCmd == g_sUnsetLimitRange) || (sCmd == "unsetlimitrange"))	
+	else if (sCmd == "unsetlimitrange")
 	{
         g_iLimitRange = FALSE;
         llMessageLinked(LINK_SET, SETTING_SAVE, "limitrange=" + (string) g_iLimitRange, "");
         Notify(kAv, "Range limited unset.", FALSE);
         if(!iIsChat) AuthMenu(kAv);		
 	}
-	else if ((sCmd == g_sListOwners) || (sCmd == "settings") || (sCmd == "listowners"))
+	else if ((sCmd == "settings") || (sCmd == "listowners"))
 	{
         Notify(kAv, "Owners: " + dumpList(OWNERLIST),FALSE);	
         Notify(kAv, "Secowners: " + dumpList(SECOWNERLIST),FALSE);
@@ -320,7 +373,7 @@ userCommand(string sCmd, list lParams, key kAv, integer iIsChat)
         Notify(kAv, "LimitRange: "+ dumpBool(g_iLimitRange),FALSE);
 		if(!iIsChat) AuthMenu(kAv);        
 	}
-	else if ((sCmd == g_sRunaway) || (sCmd == "runaway"))
+	else if (sCmd == "runaway")
 	{
         Notify(g_kWearer, "Running away from all owners started, your owners will now be notified!",FALSE);
 		NotifyOwners(llKey2Name(g_kWearer) + " has run away!");
@@ -400,7 +453,9 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
             key kAv = llList2Key(lMenuParams, 0);
             string sMessage = llList2String(lMenuParams, 1);
             integer iPage = (integer)llList2String(lMenuParams, 2);
+//#mdebug info            
 			Debug((string)kAv + "|" + (string)kID + "|" + (string)g_kAuthMenuID +"|" + sMessage);
+//#enddebug			
             if (kID == g_kAuthMenuID)
             {
                 //g_kAuthMenuID responds to setowner, setsecowner, setblacklist, remowner, remsecowner, remblacklist
@@ -409,23 +464,32 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
                 {
                     llMessageLinked(LINK_SET, MENU_SUBMENU, g_sParentMenu, kAv);
                 }
+//#mdebug info                
                 Debug("CHECKAUTH: " + (string)CheckAuth(kAv,COMMAND_OWNER,COMMAND_OWNER,FALSE));
+                Debug("CHECKAUTH2:" + sMessage);
+//#enddebug                
                 if (CheckAuth(kAv,COMMAND_OWNER,COMMAND_OWNER,FALSE))
                 {
-                    if ((sMessage == g_sSetOwner) || (sMessage == g_sSetSecOwner) || (sMessage == g_sSetBlackList))
+                	integer iAuth = llListFindList(["✚Primary Owner","✚Secondary Owner","✚Blacklisted"],[sMessage]);
+                	integer iRemAuth = llListFindList(["✘Primary Owner","✘Secondary Owner","✘Blacklisted"],[sMessage]);
+                	integer iOther = llListFindList(["Group ☐","Group ☒","Public ☐","Public ☒","LimitRange ☐","LimitRange ☒","Runaway!","List Owners"],[sMessage]);
+//#mdebug info                	
+                	Debug("CHECK: " + (string)iAuth + " | " + (string)(~iAuth) + " | "  + (string)iRemAuth + " | " + (string)(~iRemAuth) + " | "  + (string)iOther + " | " + (string)(~iOther));
+//#enddebug                	
+                    if (~iAuth)
                     {
-                        g_sRequestType = sMessage + "scan";
-                        g_kDialoger = kAv;
-                        llSensor("", "", AGENT, 10.0, PI);
+                        userCommand(llList2String(g_lAuthTokens,iAuth),[],kAv,FALSE);
                     }
-                    else if (~llListFindList(g_lRemAuthTokens,[sMessage]))
+                    else if (~iRemAuth)
                     {
-                        RemPersonMenu(kAv, "sMessage");
+                        RemPersonMenu(kAv, llList2String(g_lRemAuthTokens,iRemAuth));
                     }
-	                else if (~llListFindList([g_sSetGroup,g_sUnsetGroup,g_sSetOpenAccess,g_sUnsetOpenAccess,g_sSetLimitRange,g_sUnsetLimitRange,g_sListOwners,g_sRunaway],[sMessage]))
+	                else if (~iOther)
 	                {
+//#mdebug info
 	                	Debug("USER:" + sMessage);
-	                	userCommand(sMessage,[] , kAv, FALSE);
+//#enddebug
+	                	userCommand(llList2String(["setgroup","unsetgroup","setopenaccess","unsetopenaccess","setlimitrange","unsetlimitrange","runaway","listowners"],iOther),[] , kAv, FALSE);
 	                } 	                
                 }
                 else
@@ -476,7 +540,9 @@ HandleDIALOG(integer iSender, integer iNum, string sStr, key kID)
 // pragma inline
 HandleMENU(integer iSender, integer iNum, string sStr, key kID)
 {
-	Debug("MENU: " + (string)g_kAuthMenuID + "|" + (string)kID + " | " + sStr);        	
+//#mdebug info
+	Debug("MENU: " + (string)g_kAuthMenuID + "|" + (string)kID + " | " + sStr);
+//#enddebug
     if (iNum == MENU_SUBMENU)
     {
         if (sStr == g_sSubMenu)
@@ -519,77 +585,11 @@ HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
         string sCommand = llList2String(lParams, 0);
 		integer iAuthIndex = llListFindList(g_lAuthTokens,[sCommand]);
 		integer iRemAuthIndex = llListFindList(g_lRemAuthTokens,[sCommand]);
-		list lTemp = ["", "Owner List", "Secondary Owner List", "Blacklist"];
-		if (~iAuthIndex)
+		if ((~iAuthIndex) || (~iRemAuthIndex))
 		{ 
-		    g_sRequestType = sCommand;
-		    //pop the command off the param list, leaving only first and last name
-		    lParams = llDeleteSubList(lParams, 0, 0);
-		    //record owner name
-		    if (llGetListLength(lParams) == 1) lParams += ["Resident"];
-		    g_sTmpName = llDumpList2String(lParams, " ");
-		    //sensor for the owner name to get the key or set the owner directly if it is the wearer
-		    if (g_sTmpName=="")
-		    {
-		        // If it was an "owner" command (iAuth = 1) and no name, show the menu
-		        if (iAuthIndex == 1)
-		        {
-		            AuthMenu(kID);
-		            return;
-		        }
-		        else
-		        {
-		            g_sRequestType += "scan";
-		            g_kDialoger = kID;
-		            llSensor("", "", AGENT, 10.0, PI);
-		        }
-		    }
-		    else if (llGetListLength(getAuthList(iAuthIndex,FALSE)) == 20)
-		    {
-		        Notify(kID, "The maximum of 10 items in the "  + llList2String(lTemp,iAuthIndex) + " is reached, please clean up.",FALSE);
-		    }
-		    else
-		    {    
-		        if(llToLower(g_sTmpName) == llToLower(llKey2Name(g_kWearer)))
-		        {
-		            NewPerson(g_kWearer, g_sTmpName, sCommand);
-		        }
-		        else
-		        {
-		            g_kDialoger = kID;
-		            llSensor("","", AGENT, 20.0, PI);
-		        }
-		    }
+			userCommand(sCommand, lParams, kID, FALSE);
 		}
-		else if (~iRemAuthIndex)
-		{ 
-		    g_sRequestType = "";
-		    //pop the command off the param list, leaving only first and last name
-		    lParams = llDeleteSubList(lParams, 0, 0);
-		    //name of person concerned
-		    if (llGetListLength(lParams) == 1) lParams += ["Resident"];
-		    g_sTmpName = llDumpList2String(lParams, " ");
-		    if (g_sTmpName=="")
-		    {
-		        RemPersonMenu(kID, sCommand);
-		    }
-		    else if(llToLower(g_sTmpName) == "remove all")
-		    {
-		        Notify(kID, "Removal of all from the " + llList2String(lTemp,iRemAuthIndex) + " started!",TRUE);
-		
-		        NotifyInList(getAuthList(llListFindList(g_lRemAuthTokens,[sCommand]),FALSE), sCommand);
-		
-		        setAuthList(llListFindList(g_lRemAuthTokens,[sCommand]), []);		                
-		        llMessageLinked(LINK_SET, SETTING_DELETE, sCommand, "");
-		        
-		        Notify(kID, llList2String(lTemp,iRemAuthIndex) + " has been cleared!",TRUE);
-		    }
-		    else
-		    {
-		         RemovePerson(g_sTmpName, sCommand, kID);
-		    }
-		}
-        else if (sCommand == "reset")
+		else if (sCommand == "reset")
         {
             llResetScript();
         }
@@ -617,7 +617,7 @@ default
     {   //until set otherwise, wearer is owner
     	g_lCacheTemplate =[""];
         integer n;
-        for (n=1;n<6;n++)
+        for (n=0;n<5;n++)
         {
         	setAuthList(n,[]);
         }
@@ -681,6 +681,9 @@ default
     {
 		integer iAuthIndex;
 		integer iScanAuthIndex;
+//#mdebug info
+		Debug("SENSOR" + g_sRequestType);
+//#enddebug		
         if(endswith(g_sRequestType,"scan"))
         {
             iScanAuthIndex = llListFindList(g_lAuthTokens,[StringReplace(g_sRequestType,"scan","")]);
@@ -744,17 +747,11 @@ default
 
     no_sensor()
     {
-		integer iAuthIndex;
-		integer iScanAuthIndex;
-        if(endswith(g_sRequestType,"scan"))
-        {
-            iScanAuthIndex = llListFindList(g_lAuthTokens,[StringReplace(g_sRequestType,"scan","")]);
-        }
-        else
-        {
-            iAuthIndex = llListFindList(g_lAuthTokens,[g_sRequestType]);
-        }
-        
+        integer iScanAuthIndex = llListFindList(g_lAuthTokens,[StringReplace(g_sRequestType,"scan","")]);
+        integer iAuthIndex = llListFindList(g_lAuthTokens,[g_sRequestType]);
+//#mdebug info
+        Debug("NOSENSOR: " + (string)iScanAuthIndex + "|" + (string)(~iScanAuthIndex) + "|" + (string)iAuthIndex + "|" + (string)(~iAuthIndex));
+//#enddebug         
         if(~iAuthIndex)
         {
             //reformat name with + in place of spaces
@@ -796,7 +793,7 @@ default
                 else
                 {
                     Notify(g_kDialoger, "Error: unable to retrieve key for '" + g_sTmpName + "'.", FALSE);
-                }
+                } 
             }
         }
         else if (kID == g_kGroupHTTPID)

@@ -12,6 +12,7 @@ string UPMENU = "^";
 
 integer g_iDebug;
 
-integer OWNERLIST = 1;
-integer SECOWNERLIST = 2;
-integer BLACKLIST = 3;
+integer OWNERLIST = 0;
+integer SECOWNERLIST = 1;
+integer BLACKLIST = 2;
+integer TEMPOWNER = 3;

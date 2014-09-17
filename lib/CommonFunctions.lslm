@@ -16,7 +16,6 @@ integer llScaleByFactor(float resize_scale)
 	}
 }
 
-
 //#mdebug info
 Debug (string sStr)
 {
@@ -100,7 +99,7 @@ string GetDBPrefix()
     return llList2String(llParseString2List(llGetObjectDesc(), ["~"], []), 2);
 }
 
-integer GetOwnerChannel(key kID, integer iAppID)
+integer GetChannelByKey(key kID, integer iAppID)
 {
     return 0x80000000 | ((integer)("0x"+(string)kID) ^ iAppID);
 }
@@ -161,21 +160,21 @@ setAuthList(integer iList, list lAuthList)
     if (iMax > 2)
     {
          iHalf = iMax / 2;
-         llSetLinkMedia(LINK_THIS,iList,[PRIM_MEDIA_HOME_URL,llDumpList2String(llList2List(lAuthList,0,iHalf-1),"|"),PRIM_MEDIA_WHITELIST,llDumpList2String(llList2List(lAuthList,iHalf,iMax),"|"),PRIM_MEDIA_PERMS_CONTROL,PRIM_MEDIA_PERM_NONE,PRIM_MEDIA_PERMS_INTERACT,PRIM_MEDIA_PERM_NONE]);
+         llSetLinkMedia(LINK_THIS,iList+1,[PRIM_MEDIA_HOME_URL,llDumpList2String(llList2List(lAuthList,0,iHalf-1),"|"),PRIM_MEDIA_WHITELIST,llDumpList2String(llList2List(lAuthList,iHalf,iMax),"|"),PRIM_MEDIA_PERMS_CONTROL,PRIM_MEDIA_PERM_NONE,PRIM_MEDIA_PERMS_INTERACT,PRIM_MEDIA_PERM_NONE]);
     }
     else if (iMax == 2)
     {
-        llSetLinkMedia(LINK_THIS,iList,[PRIM_MEDIA_HOME_URL,llDumpList2String(lAuthList,"|"),PRIM_MEDIA_WHITELIST,"",PRIM_MEDIA_PERMS_CONTROL,PRIM_MEDIA_PERM_NONE,PRIM_MEDIA_PERMS_INTERACT,PRIM_MEDIA_PERM_NONE]);
+        llSetLinkMedia(LINK_THIS,iList+1,[PRIM_MEDIA_HOME_URL,llDumpList2String(lAuthList,"|"),PRIM_MEDIA_WHITELIST,"",PRIM_MEDIA_PERMS_CONTROL,PRIM_MEDIA_PERM_NONE,PRIM_MEDIA_PERMS_INTERACT,PRIM_MEDIA_PERM_NONE]);
     }
     else
     {
-    	llSetLinkMedia(LINK_THIS,iList,[PRIM_MEDIA_HOME_URL,"",PRIM_MEDIA_WHITELIST,"",PRIM_MEDIA_PERMS_CONTROL,PRIM_MEDIA_PERM_NONE,PRIM_MEDIA_PERMS_INTERACT,PRIM_MEDIA_PERM_NONE]);
+    	llSetLinkMedia(LINK_THIS,iList+1,[PRIM_MEDIA_HOME_URL,"",PRIM_MEDIA_WHITELIST,"",PRIM_MEDIA_PERMS_CONTROL,PRIM_MEDIA_PERM_NONE,PRIM_MEDIA_PERMS_INTERACT,PRIM_MEDIA_PERM_NONE]);
     }
 }
 
 list getAuthList(integer iList, integer iLowercase)
 {
-	string sList = (string)llGetLinkMedia(LINK_THIS,iList,[PRIM_MEDIA_HOME_URL]) + "|" + (string)llGetLinkMedia(LINK_THIS,iList,[PRIM_MEDIA_WHITELIST]);
+	string sList = (string)llGetLinkMedia(LINK_THIS,iList+1,[PRIM_MEDIA_HOME_URL]) + "|" + (string)llGetLinkMedia(LINK_THIS,iList+1,[PRIM_MEDIA_WHITELIST]);
 	if (iLowercase)
 	{
 		sList = llToLower(sList);
@@ -199,20 +198,16 @@ string dumpList(integer iListID)
 
 string dumpBool(integer iBool)
 {
-    if (iBool)
-    { 
-   		return "TRUE";
-    } 
-   	else 
-   	{
-   		return "FALSE";
-   	}
+	list lBool =["FALSE","TRUE"];
+   	return llList2String(lBool,iBool);
 }
 
 integer CheckAuth(string kID, integer iMinAuth, integer iMaxAuth, integer iObject)
 {
 	integer iUserAuth = UserAuth(kID, iObject);
+//#mdebug info
 	Debug((string)iUserAuth + "|" + (string)getAuthList(OWNERLIST,FALSE));
+//#enddebug	
 	if ( ( iUserAuth >= iMinAuth ) &&  ( iUserAuth <= iMaxAuth ))
 	{
 		return iUserAuth;

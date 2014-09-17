@@ -97,8 +97,8 @@ default
         g_kWearer = llGetOwner();
         g_sPrefix = AutoPrefix();
         llMessageLinked(LINK_SET, SETTING_REQUEST, llList2Json( JSON_OBJECT, [ "Token", "prefix" , "Value", g_sPrefix ] ), NULL_KEY);
-        g_iHUDChan = GetOwnerChannel(g_kWearer, 0xCDB001); // persoalized channel for this sub
-        g_iInterfaceChannel = GetOwnerChannel(g_kWearer, 0xCDB002);
+        g_iHUDChan = GetChannelByKey(g_kWearer, 0xCDB001); // persoalized channel for this sub
+        g_iInterfaceChannel = GetChannelByKey(g_kWearer, 0xCDB002);
         SetListeners();
         llMessageLinked(LINK_SET, SETTING_REQUEST, llList2Json( JSON_OBJECT, [ "Token", "prefix"]), NULL_KEY);
     }
@@ -245,11 +245,11 @@ default
             }
             else if (sCMD == "ping")
             {
-                llSay(GetOwnerChannel(kID,1111),(string)g_kWearer+":pong");
+                llSay(GetChannelByKey(kID,1111),(string)g_kWearer+":pong");
             }
             else if (sCMD == "objectversion")
               {
-                llSay(GetOwnerChannel(kID,1111),(string)g_kWearer+":version="+CollarVersion());
+                llSay(GetChannelByKey(kID,1111),(string)g_kWearer+":version="+CollarVersion());
             }
             else if (sCMD == "version")
             {
