@@ -51,6 +51,10 @@ integer COLLAR_PASSTHROUGH      = 0xCDB450;
 integer ATTACHMENT_CHANRESET    = 0xCDB460;
 integer ATTACHMENT_PING         = 0xCDB470;
 
+integer REGISTER_CHAT_COMMAND   = 0xCDB510;
+integer DELETE_CHAT_COMMAND     = 0xCDB520;
+integer CHAT_COMMAND            = 0xCDB530;
+
 integer RLV_CMD                 = 0xCDB600;
 integer RLV_REFRESH             = 0xCDB601;     // RLV plugins should reinstate their restrictions upon receiving this message.
 integer RLV_CLEAR               = 0xCDB602;     // RLV plugins should clear their restriction lists upon receiving this message.

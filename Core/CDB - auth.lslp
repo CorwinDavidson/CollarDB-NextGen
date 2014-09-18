@@ -557,6 +557,26 @@ HandleMENU(integer iSender, integer iNum, string sStr, key kID)
 }
 
 // pragma inline
+HandleCHATCOMMAND(integer iSender, integer iNum, string sStr, key kID)
+{
+	Debug("CHAT_COMMAND");
+    if (iNum == CHAT_COMMAND)
+    {
+        if (CheckAuth(kID,COMMAND_WEARER,COMMAND_OWNER,FALSE))
+        {
+	        list lParams = llParseString2List(sStr, [" "], []);
+	        string sCommand = llList2String(lParams, 0);
+	        integer iAuthIndex = llListFindList(g_lAuthTokens,[sCommand]);
+	        integer iRemAuthIndex = llListFindList(g_lRemAuthTokens,[sCommand]);
+	        if ((~iAuthIndex) || (~iRemAuthIndex))
+	        { 
+	            userCommand(sCommand, lParams, kID, FALSE);
+	        }
+        }
+    }
+}
+
+// pragma inline
 HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
 {
    if (iNum >= COMMAND_WEARER && iNum <= COMMAND_OWNER)
@@ -632,7 +652,8 @@ default
         //added for attachment auth
         g_iInterfaceChannel = (integer)("0x" + llGetSubString(g_kWearer,30,-1));
         if (g_iInterfaceChannel > 0) g_iInterfaceChannel = -g_iInterfaceChannel;
-        llMessageLinked(LINK_SET, SETTING_REQUEST, "prefix", NULL_KEY);        
+        llMessageLinked(LINK_SET, SETTING_REQUEST, "prefix", NULL_KEY);
+        llMessageLinked(LINK_SET,REGISTER_CHAT_COMMAND , "owner|secowner|blacklist|group|runaway", NULL_KEY);
     }
 
     link_message(integer iSender, integer iNum, string sStr, key kID)
@@ -652,7 +673,11 @@ default
         else if ((iNum >= COMMAND_WEARERLOCKEDOUT) && (iNum <= COMMAND_OWNER))
         {
             HandleCOMMAND(iSender,iNum,sStr,kID);
-        }    	
+        }
+        else if (iNum == CHAT_COMMAND)
+        {
+            HandleCHATCOMMAND(iSender,iNum,sStr,kID);
+        } 
         else if (iNum == COMMAND_NOAUTH)
         {
             integer iAuth = UserAuth((string)kID, FALSE);

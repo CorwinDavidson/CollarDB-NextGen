@@ -1,0 +1,233 @@
+$module ()
+
+ // Converts n = [0..0xff] to two hex characters
+ //
+ string hexChar2(integer n)
+ {
+     string hexChars = "0123456789abcdef";
+     return llGetSubString(hexChars, n >> 4, n >> 4) +
+            llGetSubString(hexChars, n & 0xf, n & 0xf);
+ }
+ 
+  
+ // Given a single character c, this returns its Unicode ID number
+ // This works only for character codes 0 through 0xffff.
+ // For a more compact alternative, see UTF8ToUnicodeInteger()
+ // found in http://wiki.secondlife.com/wiki/Combined_Library .
+ //
+ integer charToUnicodeIdNumber(string c)
+ {
+     integer cInt = llBase64ToInteger(llStringToBase64(c));
+ 
+     if (!(cInt & 0x80000000)) {
+         // UTF-8 single-byte form
+         cInt = cInt >> 24;
+     } else {
+         if ((cInt & 0xe0000000) == 0xc0000000) {
+             // two-byte UTF-8 form:  110v vvvv  10vv vvvv
+             cInt = ((cInt & 0x1f000000) >> 18) |
+                    ((cInt & 0x003f0000) >> 16);
+         } else {
+             // assume three-byte UTF-8 form:  1110 vvvv  10vv vvvv  10vv vvvv
+             cInt = ((cInt & 0x0f000000) >> 12) |
+                    ((cInt & 0x003f0000) >> 10) |
+                    ((cInt & 0x00003f00) >> 8);
+         } // else ignore the 4-byte UTF-8 form
+     }
+ 
+     return cInt;
+ }
+ 
+ // This is a memory-savings technique for use with Mono-compiled LSL scripts.
+ // (It probably works in classic LSO too, but not as efficiently.) This technique
+ // stores 15 bits of information in each 16-bit Unicode character. Use the
+ // encode function below to convert any 15-bit data to a Unicode character, and
+ // use the decode function to convert it back to the original 15-bit data.
+ //
+ // This example maps the data values 0 through 0x7fff to the Unicode
+ // characters U-001000 through U-008fff. Use the matching function
+ // decodeCharTo15Bits() to decode the Unicode character back into the original
+ // 15-bit number.
+ //
+ // The technique used here is very similar to the technique used in the "Base 32768
+ // Script" in http://wiki.secondlife.com/wiki/Key_Compression .
+ 
+ // Convert any 15-bit integer into a single Unicode character
+ //
+ 
+
+ string encode15BitsToChar(integer num, integer asciiOnly, integer hash)
+ {
+     // Check the incoming range
+ 
+ 	 if (asciiOnly)
+ 	 {
+	     if (num < 0 || num >= 0x8000) {
+	         // illegal input -- do whatever is appropriate
+	         return "�";
+	     }
+ 	 }
+ 
+     // Bias the incoming numeric value by 0x1000 to avoid illegal Unicode codes:
+ 
+     if (hash)
+     {
+     	num = 0x1000 + (num & 0x00007fff);
+     }
+     else
+     {
+     	num += 0x1000;
+     }
+ 
+     // Construct an escaped hex UTF-8 representation and return
+     // it as a Unicode character
+ 
+     return llUnescapeURL(
+                   "%" + hexChar2(0xe0 + (num >> 12)) +
+                   "%" + hexChar2(0x80 + ((num >> 6) & 0x3f)) +
+                   "%" + hexChar2(0x80 + (num & 0x3f)));
+ }
+ 
+ 
+ // This is the inverse of encode15BitsToChar(), supra, q.v.
+ // This expects a single 16-bit Unicode character that was created by
+ // encode15BitsToChar() and returns the 15-bit numeric value used to create it.
+ // The 15-bit return value will always be in the range 0x0000 - 0x7fff.
+ //
+ integer decodeCharTo15Bits(string ch)
+ {
+     string utf8 = llEscapeURL(ch); // convert to escaped hex UTF-8
+ 
+     return
+         (((integer)("0x" + llGetSubString(utf8, 1, 2)) & 0x1f) << 12) +
+         (((integer)("0x" + llGetSubString(utf8, 4, 5)) & 0x3f) << 6) +
+          ((integer)("0x" + llGetSubString(utf8, 7, 8)) & 0x3f) - 0x1000;
+ }
+ 
+ 
+ // Returns a Unicode string that encodes twice as many ASCII characters.
+ // Use the matching function decompressAscii() to expand it back into
+ // the original ASCII.
+ //
+ string compressAscii(string s)
+ {
+     integer len = llStringLength(s);
+ 
+     // Append a space if needed to make s an even number of chars
+     if (len % 2) {
+        s += " ";
+        ++len;
+     }
+ 
+     string encodedChars;
+     integer i;
+     for (i = 0; i < len; i += 2) {
+         encodedChars += encode15BitsToChar(
+                 charToUnicodeIdNumber(llGetSubString(s, i, i)) << 7 |
+                 charToUnicodeIdNumber(llGetSubString(s, i+1, i+1)),TRUE,FALSE);
+     }
+ 
+     return encodedChars;
+ }
+ 
+ integer findHash(string hashCodes, string hashCode, integer hashSize)
+ {
+     integer index = llSubStringIndex(hashCodes, hashCode);
+     if (index != -1 && (index % hashSize)) 
+     {
+         // this is a false match.
+         // fall back to a loop search, or whatever is appropriate
+         integer found = FALSE;
+         integer n = 0;
+         integer iMax = llStringLength(hashCodes);         
+         while(!found)
+         {
+	         if (llGetSubString(hashCodes, n, n+3) == hashCode)
+	         {
+                index = n;
+                found = TRUE;
+	         }
+	         else
+	         {
+	         	n += 3;
+	         	if (n >= iMax)
+	         	{
+	         		index = -1;
+	         		found = TRUE;
+	         	}
+	         }
+         }
+     }
+     else if (index != -1) 
+     {
+         // a valid match
+         index /= hashSize;
+     }
+     return index;
+ }
+ 
+  string deleteHash(string hashCodes, string hashCode, integer hashSize)
+ {
+     integer index = llSubStringIndex(hashCodes, hashCode);
+     if (index != -1 && (index % hashSize)) 
+     {
+         // this is a false match.
+         // fall back to a loop search, or whatever is appropriate
+         integer found = FALSE;
+         integer n = 0;
+         integer iMax = llStringLength(hashCodes);         
+         while(!found)
+         {
+             if (llGetSubString(hashCodes, n, n+3) == hashCode)
+             {
+                hashCodes=llDeleteSubString(hashCodes,n,n+3);
+                found = TRUE;
+             }
+             else
+             {
+                n += 3;
+                if (n >= iMax)
+                {
+                    index = -1;
+                    found = TRUE;
+                }
+             }
+         }
+     }
+     else if (index != -1) 
+     {
+        hashCodes=llDeleteSubString(hashCodes,index,index+3);
+     }
+
+     return hashCodes;
+ }
+ 
+ string makeHash(string text)
+ {
+     string md5 = llMD5String(text, 0);
+     integer n1 = (integer)("0x" + llGetSubString(md5, 0, 7));
+     integer n2 = (integer)("0x" + llGetSubString(md5, 8, 11));
+
+     string encoded3Chars = 
+         encode15BitsToChar(n1 >> 16,FALSE,TRUE) +
+         encode15BitsToChar(n1,FALSE,TRUE) +
+         encode15BitsToChar(n2,FALSE,TRUE);
+    return encoded3Chars;
+ }
+ 
+ // This is the inverse of compressAscii()
+ //
+ string uncompressAscii(string s)
+ {
+     string result;
+ 
+     integer len = llStringLength(s);
+     integer i;
+     for (i = 0; i < len; ++i) {
+         integer cInt15 = decodeCharTo15Bits(llGetSubString(s, i, i));
+         result += llUnescapeURL("%" + hexChar2(cInt15 >> 7) +
+                                 "%" + hexChar2(cInt15 & 0x7f));
+     }
+ 
+     return result;
+ }

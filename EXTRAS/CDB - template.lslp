@@ -44,6 +44,24 @@ HandleMENU(integer iSender, integer iNum, string sStr, key kID)
 }
 
 // pragma inline
+HandleCHATCOMMAND(integer iSender, integer iNum, string sStr, key kID)
+{
+  
+    if (iNum == REGISTER_CHAT_COMMAND)
+    {
+     //   MenuResponse();
+    }
+    else if (iNum == DELETE_CHAT_COMMAND)
+    {
+        
+    }
+    else if (iNum == CHAT_COMMAND)
+    {
+        
+    }
+}
+
+// pragma inline
 HandleCOMMAND(integer iSender, integer iNum, string sStr, key kID)
 {
 }
@@ -90,7 +108,11 @@ default {
         else if ((iNum >= COMMAND_WEARERLOCKEDOUT) && (iNum <= COMMAND_OWNER))
         {
             HandleCOMMAND(iSender,iNum,sStr,kID);
-        }      
+        }
+        else if ((iNum >= REGISTER_CHAT_COMMAND) && (iNum <= CHAT_COMMAND))
+        {
+            HandleCHATCOMMAND(iSender,iNum,sStr,kID);
+        } 
     } 
     
     run_time_permissions(integer nParam)
